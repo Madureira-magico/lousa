@@ -21,7 +21,9 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
 .logo{font-family:Caveat,cursive;font-size:40px;line-height:1;flex:1}
 .ibtn{width:44px;height:44px;border-radius:12px;background:var(--card);display:flex;align-items:center;justify-content:center;flex:none}
 .chips{display:flex;gap:8px;flex-wrap:wrap}
-.chip{display:flex;align-items:center;gap:8px;background:var(--card);border-radius:999px;padding:8px 14px;font-size:13px}
+.chip{display:flex;align-items:center;gap:8px;background:var(--card);border:1.5px solid #8A8F98;border-radius:999px;padding:10px 18px;font-size:15px;font-weight:700}
+.chip.ok{background:rgba(52,199,89,.18);border-color:#34C759;color:#34C759}
+.chip.busy{border-color:#E0A43C;color:#E0A43C}.chip.bad{border-color:var(--bad);color:#FF8A82}
 .dot{width:10px;height:10px;border-radius:50%;background:#8A8F98;flex:none}
 .dot.ok{background:var(--ok)}.dot.bad{background:var(--bad)}.dot.busy{background:#E0A43C}
 .board{border:10px solid var(--wood);border-radius:10px;background:#0E0F11;line-height:0;position:relative}
@@ -29,9 +31,11 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
 .board .empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:Caveat,cursive;font-size:30px;color:#6b6f76;line-height:1}
 .small{font-size:13px;color:var(--muted);text-align:center}
 .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.tile{background:var(--card);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:6px;min-height:92px;text-align:left}
+.tile{background:var(--card);border-radius:16px;padding:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:92px;text-align:center}
+.tile.wide{grid-column:1/-1;flex-direction:row;gap:12px;min-height:58px;padding:12px}
 .tile b{font-size:16px}.tile span{font-size:12px;color:var(--muted)}
-.tile .ico{font-size:26px;line-height:1;height:28px}
+.tile .ico{font-size:26px;line-height:1;height:28px;display:flex;align-items:center;justify-content:center}
+.tile .ico.spade{font-size:38px;height:30px}
 .big{height:54px;border-radius:14px;background:var(--accent);color:#fff;font-weight:700;font-size:17px;width:100%}
 .big:disabled{background:#3A3D44;color:#8A8F98}
 .big.alt{background:var(--card);color:var(--text)}
@@ -41,6 +45,7 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
 .suit.red{color:#FF7A6B}.suit.sel{border-color:var(--accent);background:#2E2620}
 .vals{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
 .vals button,.pad button{height:54px;border-radius:12px;background:var(--card);font-size:21px;font-weight:600}
+.vals button.sel{background:#2E2620;box-shadow:inset 0 0 0 2px var(--accent)}
 .vals button:active,.pad button:active,.suit:active,.tile:active{transform:scale(.97);filter:brightness(1.2)}
 .pad{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .display{font-size:52px;font-weight:700;letter-spacing:3px;text-align:center;font-variant-numeric:tabular-nums}
@@ -55,6 +60,10 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
 .sw:checked{background:var(--accent)}
 .sw::after{content:"";position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:50%;background:#fff;transition:.2s}
 .sw:checked::after{left:23px}
+.seg{display:flex;background:#3A3D44;border-radius:10px;padding:3px;gap:3px;flex:none}
+.seg button{height:32px;padding:0 10px;border-radius:8px;font-size:13px;font-weight:600;color:var(--muted)}
+.seg button.sel{background:var(--accent);color:#fff}
+#frame{position:absolute;border:1.5px solid rgba(242,237,228,.35);border-radius:6px;pointer-events:none}
 .mini{height:36px;padding:0 14px;border-radius:10px;background:#3A3D44;font-size:14px;font-weight:600}
 #log{font:11px/1.4 ui-monospace,Menlo,monospace;color:var(--muted);white-space:pre-wrap;max-height:180px;overflow:auto;background:#0E0F11;border-radius:10px;padding:10px;-webkit-user-select:text;user-select:text}
 #bar{position:fixed;left:0;right:0;top:0;height:4px;z-index:50;background:transparent}
@@ -70,7 +79,7 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
 #escrita .tools button{pointer-events:auto;background:rgba(255,255,255,.08)}
 #escrita .send{height:44px;padding:0 18px;border-radius:12px;background:var(--accent)!important;color:#fff;font-weight:700}
 #rotate{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px;color:var(--muted);font-size:16px;text-align:center;padding:30px;pointer-events:none}
-@media (orientation:portrait){#rotate{display:flex}}
+@media (orientation:portrait){#rotate{display:flex}#frame{display:none}}
 </style>
 </head>
 <body>
@@ -84,19 +93,20 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
   <div class="board"><canvas class="pv"></canvas><div class="empty">nada enviado ainda</div></div>
   <div class="small" id="lastTxt">Última enviada: —</div>
   <div class="grid2">
-    <button class="tile" data-go="carta"><div class="ico">♠</div><b>Carta</b><span>teclado de cartas</span></button>
-    <button class="tile" data-go="relogio"><div class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><b>Relógio</b><span>hora com ponteiros</span></button>
-    <button class="tile" data-go="nascimento"><div class="ico" style="font-family:Caveat,cursive">19889</div><b>Data de Nascimento</b><span>dias vividos até hoje</span></button>
-    <button class="tile" id="goEscrita"><div class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round"><path d="M4 20l4-1 11-11-3-3L5 16z"/></svg></div><b>Escrita manual</b><span>seu traço em giz</span></button>
+    <button class="tile" data-go="carta"><div class="ico spade">♠</div><b>Carta</b></button>
+    <button class="tile" data-go="relogio"><div class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><b>Relógio</b></button>
+    <button class="tile" data-go="nascimento"><div class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M8 14h2M14 14h2M8 17.5h2"/></svg></div><b>Data de Nascimento</b></button>
+    <button class="tile" id="goEscrita"><div class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round"><path d="M4 20l4-1 11-11-3-3L5 16z"/></svg></div><b>Escrita manual</b></button>
+    <button class="tile wide" id="btnClear"><div class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round"><path d="M3 17l8-8 6 6-4 4H7z"/><path d="M11 9l4-4 6 6-4 4"/><path d="M3 21h18"/></svg></div><b>Limpar lousa</b></button>
   </div>
-  <div class="small" style="margin-top:auto">v1.0.2 · use no Bluefy</div>
+  <div class="small" style="margin-top:auto">v1.0.3 · use no Bluefy</div>
 </section>
 
 <!-- CARTA -->
 <section class="screen" id="s-carta">
   <div class="top"><button class="ibtn" data-go="inicio" aria-label="Voltar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg></button><div class="title">Carta</div></div>
   <div class="board"><canvas class="pv"></canvas><div class="empty">nada enviado ainda</div></div>
-  <div class="small" id="lastCard">Toque no naipe e depois no valor</div>
+  <div class="small" id="lastCard">Escolha o naipe e o valor</div>
   <div class="label">1. Naipe</div>
   <div class="suits">
     <button class="suit" data-s="S" aria-label="Espadas">♠</button>
@@ -104,8 +114,9 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
     <button class="suit sel" data-s="C" aria-label="Paus">♣</button>
     <button class="suit red" data-s="D" aria-label="Ouros">♦</button>
   </div>
-  <div class="label">2. Valor — envia na hora</div>
+  <div class="label">2. Valor</div>
   <div class="vals" id="vals"></div>
+  <button class="big" id="cSend" disabled>Enviar</button>
   <div class="list" style="margin-top:auto"><div class="row"><label for="optFull">Mandar nome por extenso</label><input type="checkbox" class="sw" id="optFull"></div></div>
 </section>
 
@@ -135,6 +146,7 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
   <div class="label">Lousa</div>
   <div class="list">
     <div class="row"><div><div id="optName">Nenhuma lousa</div><div class="small" style="text-align:left" id="optState">desconectada</div></div><button class="mini" id="btnConn">Conectar</button></div>
+    <div class="row"><span>Ao conectar</span><div class="seg" id="segConn"><button data-v="keep">Deixar como está</button><button data-v="clear">Limpar</button></div></div>
     <div class="row"><label for="optDust">Sujeirinha de giz</label><input type="checkbox" class="sw" id="optDust"></div>
     <div class="row"><label for="optNum">Relógio com numerais</label><input type="checkbox" class="sw" id="optNum"></div>
     <div class="row"><label for="optRot">Girar imagem 180°</label><input type="checkbox" class="sw" id="optRot"></div>
@@ -148,6 +160,7 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
 <!-- ESCRITA MANUAL -->
 <div id="escrita">
   <canvas id="pad"></canvas>
+  <div id="frame"></div>
   <div id="rotate"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#A9AEB6" stroke-width="1.6" stroke-linecap="round"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M3 12a9 9 0 0 1 4-7.5M21 12a9 9 0 0 1-4 7.5"/></svg>Gire o iPhone para deitado</div>
   <div class="tools">
     <div><button class="ibtn" id="eBack" aria-label="Voltar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg></button></div>
@@ -614,6 +627,18 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
 
   // ---------- Traço livre (escrita manual) ----------
   function drawStrokes(ctx, strokes, r) {
+    if (strokes.norm) {                                       // exato como na moldura do celular
+      const lw = strokes.lw || 15;
+      strokes.list.forEach(st => {
+        const P = st.map(p => ({ x: p.x * W, y: p.y * H }));
+        if (P.length === 1) { dot(ctx, P[0].x * S, P[0].y * S, lw / 2 * S); return; }
+        for (let i = 1; i < P.length; i++) {
+          const a = P[i - 1], b = P[i], n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 2));
+          for (let j = 0; j <= n; j++) { const t = j / n; dot(ctx, (a.x + (b.x - a.x) * t) * S, (a.y + (b.y - a.y) * t) * S, lw / 2 * S * (0.92 + 0.16 * r())); }
+        }
+      });
+      return { x: W / 2, y: H / 2, rad: 300 };
+    }
     let minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
     strokes.forEach(st => st.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); }));
     if (!(maxX >= minX)) return null;
@@ -665,20 +690,61 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
       if (grain < p) px[i] = 1;
     }
     if (opts.dust) {
-      const f = focus || { x: W / 2, y: H / 2, rad: 245 };
-      const n = 45 + Math.floor(r() * 16);
-      for (let k = 0; k < n; k++) {
-        let x0, y0;
-        if (r() < 0.6) { const ang = r() * 6.283, rr = r() * f.rad; x0 = f.x + rr * Math.cos(ang); y0 = f.y + rr * Math.sin(ang); }
-        else { x0 = r() * W; y0 = r() * H; }
-        const sx = uni(r, 4, 14), cnt = 4 + Math.floor(r() * 19);
-        for (let j = 0; j < cnt; j++) {
-          const x = Math.floor(x0 + gauss(r) * sx), y = Math.floor(y0 + gauss(r) * sx * 0.7);
-          if (x >= 0 && x < W && y >= 0 && y < H) { px[y * W + x] = 1; if (r() < 0.3 && x + 1 < W) px[y * W + x + 1] = 1; }
-        }
-      }
+      if (opts.under) {                                     // 1º envio depois de limpar: mesmas marcas por baixo
+        for (let i = 0; i < W * H; i++) if (opts.under[i]) px[i] = 1;
+        addDust(px, r, focus || { x: W / 2, y: H / 2, rad: 245 }, 'none', 0.4);
+      } else addDust(px, r, focus || { x: W / 2, y: H / 2, rad: 245 }, 'auto', 1);
     }
     return px;
+  }
+
+  // ---------- Sujeirinha (aleatória a cada envio, como giz de verdade) ----------
+  const SPECKS = [[[0, 0]], [[0, 0], [1, 0]], [[0, 0], [1, 1], [2, 0]], [[0, 0], [0, 1]], [[0, 0], [1, 0], [2, 0]], [[0, 1], [1, 0], [2, 1]], [[0, 0], [1, 1]]];
+  function speck(px, r, x, y) {
+    const sh = SPECKS[Math.floor(r() * SPECKS.length)];
+    for (const [dx, dy] of sh) { const xx = x + dx, yy = y + dy; if (xx >= 0 && xx < W && yy >= 0 && yy < H) px[yy * W + xx] = 1; }
+  }
+  function addDust(px, r, f, streaks, amount) {
+    // 1) grupinhos de pó pela lousa toda, um pouco mais perto do desenho
+    const n = Math.round((80 + Math.floor(r() * 50)) * (amount == null ? 1 : amount));
+    for (let k = 0; k < n; k++) {
+      let x0, y0;
+      if (r() < 0.45) { const a = r() * 6.283, rr = Math.sqrt(r()) * f.rad * 1.15; x0 = f.x + rr * Math.cos(a); y0 = f.y + rr * Math.sin(a) * 0.9; }
+      else { x0 = r() * W; y0 = r() * H; }
+      const sx = uni(r, 5, 18), cnt = 5 + Math.floor(r() * 22);
+      for (let j = 0; j < cnt; j++) speck(px, r, Math.floor(x0 + gauss(r) * sx), Math.floor(y0 + gauss(r) * sx * 0.75));
+    }
+    // 2) nuvens fracas (pó espalhado)
+    const clouds = Math.round((2 + Math.floor(r() * 4)) * (amount == null ? 1 : Math.max(amount, 0.5)));
+    for (let k = 0; k < clouds; k++) {
+      const near = r() < 0.6;
+      const cx = near ? f.x + gauss(r) * f.rad * 0.5 : r() * W, cy = near ? f.y + gauss(r) * f.rad * 0.4 : r() * H;
+      const rx = uni(r, 50, 130), ry = rx * uni(r, 0.5, 0.9), cnt = Math.floor(rx * ry * uni(r, 0.006, 0.014));
+      for (let j = 0; j < cnt; j++) { const a = r() * 6.283, d = Math.sqrt(r()); speck(px, r, Math.floor(cx + Math.cos(a) * d * rx), Math.floor(cy + Math.sin(a) * d * ry)); }
+    }
+    // 3) às vezes, riscos de apagador na diagonal (fracos ou fortes)
+    // auto: de vez em quando e leves · heavy: lousa recém-apagada
+    const roll = r();
+    const groups = streaks === 'heavy' ? 6 + Math.floor(r() * 5) : streaks === 'auto' ? (roll < 0.7 ? 0 : 2 + Math.floor(r() * 3)) : 0;
+    for (let g = 0; g < groups; g++) {
+      const ang = -uni(r, 0.35, 0.95);                      // sobe para a direita
+      const len = uni(r, 70, 300), lines = 3 + Math.floor(r() * 6), gap = uni(r, 3, 7);
+      const x0 = r() * W, y0 = r() * H, dens = uni(r, 0.25, 0.65);
+      const ca = Math.cos(ang), sa = Math.sin(ang), nx = -sa, ny = ca;
+      for (let l = 0; l < lines; l++) {
+        const off = (l - lines / 2) * gap + gauss(r) * 1.5, lenL = len * uni(r, 0.5, 1), st = uni(r, 0, len - lenL);
+        let on = r() < 0.7;
+        for (let t = st; t < st + lenL; t += 1.6) {
+          if (r() < 0.04) on = !on;                           // falhas no risco
+          if (on && r() < dens) speck(px, r, Math.floor(x0 + ca * t + nx * off), Math.floor(y0 + sa * t + ny * off));
+        }
+      }
+      if (r() < 0.4) {                                        // mancha mais cheia em volta do risco
+        const cx = x0 + ca * len * 0.5, cy = y0 + sa * len * 0.5, rx = uni(r, 30, 80), ry = rx * 0.5;
+        const cnt = Math.floor(rx * ry * 0.05);
+        for (let j = 0; j < cnt; j++) { const a = r() * 6.283, d = Math.sqrt(r()); const u = Math.cos(a) * d * rx, v = Math.sin(a) * d * ry; speck(px, r, Math.floor(cx + u * ca - v * sa), Math.floor(cy + u * sa + v * ca)); }
+      }
+    }
   }
   // bits como o app oficial faz: linha a linha, 8 pontos por byte, 1º ponto no bit mais alto, branco = 1
   function packBits(px, rotate180) {
@@ -689,6 +755,28 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
     }
     return out;
   }
+  // centraliza pelo desenho real e deixa o mais alto possível (limitado pelas margens laterais)
+  function fitMask(c, maxHf, maxWf, grow) {
+    const ctx = c.getContext('2d');
+    const d = ctx.getImageData(0, 0, c.width, c.height).data;
+    let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
+    for (let y = 0; y < c.height; y += 2) for (let x = 0; x < c.width; x += 2) {
+      if (d[(y * c.width + x) * 4] > 60) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    }
+    if (x1 < 0) return { c, focus: null };
+    const bw = x1 - x0 + 2, bh = y1 - y0 + 2, CW = W * S, CH = H * S;
+    let sy = maxHf * CH / bh; if (!grow) sy = Math.min(sy, 1);
+    let sx = sy;
+    if (bw * sx > maxWf * CW) {
+      sx = Math.max(maxWf * CW / bw, sy * 0.85);              // 1º estreita um pouco (até 15%)
+      if (bw * sx > maxWf * CW) { const k = maxWf * CW / (bw * sx); sx *= k; sy *= k; }  // 2º diminui
+    }
+    const out = makeCanvas(CW, CH), o = out.getContext('2d');
+    o.fillStyle = '#000'; o.fillRect(0, 0, CW, CH);
+    o.imageSmoothingEnabled = true;
+    o.drawImage(c, x0, y0, bw, bh, CW / 2 - bw * sx / 2, CH / 2 - bh * sy / 2, bw * sx, bh * sy);
+    return { c: out, focus: { x: W / 2, y: H / 2, rad: Math.max(bw * sx, bh * sy) / S / 2 + 30 } };
+  }
   function render(kind, data, opts) {
     const r = rng((opts.seed != null ? opts.seed : (Date.now() ^ (Math.random() * 1e9))) >>> 0);
     const { c, ctx } = newMask();
@@ -697,7 +785,15 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
     else if (kind === 'text') focus = drawText(ctx, data.text, r);
     else if (kind === 'card') focus = data.full ? drawText(ctx, cardName(data.v, data.s), r) : drawCard(ctx, data.v, data.s, r);
     else if (kind === 'strokes') focus = drawStrokes(ctx, data.strokes, r);
-    const px = chalkify(c, r, opts, focus);
+    let mask = c;
+    if (kind === 'text' || (kind === 'card' && data.full)) { const f = fitMask(c, 0.78, 0.88, true); mask = f.c; focus = f.focus || focus; }
+    else if (kind === 'card') { const f = fitMask(c, 0.78, 0.9, true); mask = f.c; focus = f.focus || focus; }
+    if (kind === 'clear') {
+      const px = new Uint8Array(W * H);
+      if (opts.dust) addDust(px, r, { x: W / 2, y: H / 2, rad: 330 }, 'heavy', 0.6);
+      return { px, bytes: packBits(px, !!opts.rotate180) };
+    }
+    const px = chalkify(mask, r, opts, focus);
     return { px, bytes: packBits(px, !!opts.rotate180) };
   }
   function drawPreview(canvas, px) {
@@ -751,6 +847,7 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
     this.waiters = []; this.onBlockRequest = null; this.onDisconnect = null;
     this.swBit80 = true;   // a lousa NEMR anuncia versão 0x81 (bit 0x80 ligado)
     this.busy = false;
+    this.dataMode = 'resp';  // modo seguro (com resposta): no iPhone o modo rápido perde dados
   }
   Board.prototype.connected = function () { return !!(this.device && this.device.gatt && this.device.gatt.connected && this.ctrl); };
 
@@ -774,11 +871,35 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
     }
     if (lastErr) throw new Error(errStr(lastErr));
     this.log('Escolhida: ' + (this.device.name || '(sem nome)'));
-    this.device.addEventListener('gattserverdisconnected', () => {
+    this.setDevice(this.device);
+    await this.attach();
+  };
+
+  Board.prototype.setDevice = function (dev) {
+    this.device = dev;
+    if (dev.__lousaHooked) return;
+    dev.__lousaHooked = true;
+    dev.addEventListener('gattserverdisconnected', () => {
       this.log('Lousa desconectou'); this.ctrl = null; this.data = null;
       if (this.onDisconnect) this.onDisconnect();
     });
-    await this.attach();
+  };
+
+  // ao abrir o app: tenta voltar à lousa já autorizada, sem abrir a lista
+  Board.prototype.restore = async function () {
+    if (!navigator.bluetooth || !navigator.bluetooth.getDevices) { this.log('Reconexão automática ao abrir: não suportada neste navegador'); return false; }
+    let devs = [];
+    try { devs = await navigator.bluetooth.getDevices(); } catch (e) { this.log('getDevices falhou: ' + errStr(e)); return false; }
+    if (!devs.length) { this.log('Nenhuma lousa lembrada'); return false; }
+    const dev = devs.find(d => /NEMR|PICK/i.test(d.name || '')) || devs[0];
+    this.log('Lousa lembrada: ' + (dev.name || '(sem nome)'));
+    this.setDevice(dev);
+    await this.withTimeout(this.attach(), 8000);
+    return true;
+  };
+
+  Board.prototype.withTimeout = function (p, ms) {
+    return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('tempo esgotado')), ms))]);
   };
 
   Board.prototype.attach = async function () {
@@ -792,12 +913,14 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
     this.data = await svc.getCharacteristic(U(base + 2));
     await this.ctrl.startNotifications();
     this.ctrl.addEventListener('characteristicvaluechanged', (ev) => this.onNotify(new Uint8Array(ev.target.value.buffer.slice(ev.target.value.byteOffset, ev.target.value.byteOffset + ev.target.value.byteLength))));
+    this.justConnected = Date.now();
     this.log('Conectada (serviço ' + base.toString(16).toUpperCase() + ')');
   };
 
   Board.prototype.reconnect = async function () {
     if (!this.device) throw new Error('Nenhuma lousa escolhida');
-    await this.attach();
+    await this.withTimeout(this.attach(), 8000);
+    this.justConnected = Date.now();
   };
 
   Board.prototype.onNotify = function (v) {
@@ -823,8 +946,9 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
       try { return await this.data.writeValueWithoutResponse(buf); }
       catch (e) { this.log('Envio sem resposta falhou (' + e.message + '), tentando com resposta'); this.dataMode = 'resp'; }
     }
-    if (this.data.writeValueWithResponse) return this.data.writeValueWithResponse(buf);
-    return this.data.writeValue(buf);
+    if (this.data.writeValueWithResponse && p.write !== false) return this.data.writeValueWithResponse(buf);
+    if (this.data.writeValue) return this.data.writeValue(buf);
+    return this.data.writeValueWithoutResponse(buf);
   };
 
   Board.prototype.request = function (bytes, first, ms) {
@@ -841,6 +965,9 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
       if (this.device) { this.log('Reconectando…'); await this.reconnect(); }
       else throw new Error('Lousa não conectada');
     }
+    // logo depois de (re)conectar a lousa precisa de um instante antes do 1º comando
+    const since = Date.now() - (this.justConnected || 0);
+    if (since < 1500) await new Promise(r => setTimeout(r, 1500 - since));
     this.busy = true;
     try {
       const r1 = await this.request([0x01], 0x01);
@@ -933,11 +1060,14 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
   window.addEventListener('error', (e) => log('ERRO: ' + e.message));
 
   // ---------- opções (guardadas no iPhone) ----------
-  const DEF = { dust: true, numerals: false, rotate180: false, full: false };
+  const DEF = { dust: true, numerals: false, rotate180: false, full: false, onConnect: 'keep' };
   let opt = Object.assign({}, DEF);
   try { Object.assign(opt, JSON.parse(localStorage.getItem('lousa.opt') || '{}')); } catch (e) {}
   function saveOpt() { try { localStorage.setItem('lousa.opt', JSON.stringify(opt)); } catch (e) {} }
   function bindSw(id, key) { const el = $(id); el.checked = !!opt[key]; el.addEventListener('change', () => { opt[key] = el.checked; saveOpt(); }); }
+  function drawSeg() { $$('#segConn button').forEach(b => b.classList.toggle('sel', b.dataset.v === opt.onConnect)); }
+  $$('#segConn button').forEach(b => b.addEventListener('click', () => { opt.onConnect = b.dataset.v; saveOpt(); drawSeg(); }));
+  drawSeg();
   bindSw('#optDust', 'dust'); bindSw('#optNum', 'numerals'); bindSw('#optRot', 'rotate180'); bindSw('#optFull', 'full');
 
   // ---------- navegação ----------
@@ -959,32 +1089,78 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
 
   // ---------- lousa ----------
   const board = new LousaBLE.Board(log);
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
   function setStatus(kind, text) {
+    $('#chipBoard').className = 'chip' + (kind ? ' ' + kind : '');
     const d = $('#dotBoard'); d.className = 'dot' + (kind ? ' ' + kind : '');
     $('#txtBoard').textContent = text;
     $('#optState').textContent = text;
     $('#btnConn').textContent = board.connected() ? 'Desconectar' : 'Conectar';
     if (board.device) $('#optName').textContent = board.device.name || 'Lousa';
   }
-  board.onDisconnect = () => setStatus('bad', 'Lousa desconectada — toque para reconectar');
-  async function connect() {
-    if (!navigator.bluetooth) { toast('Este navegador não tem Bluetooth. Abra no Bluefy.', true); log('navigator.bluetooth ausente'); return false; }
-    try {
-      setStatus('busy', 'Conectando…');
-      if (board.device && !board.connected()) await board.reconnect(); else await board.pick();
-      setStatus('ok', 'Lousa conectada');
-      return true;
-    } catch (e) {
-      log('Falha ao conectar: ' + LousaBLE.errStr(e));
-      setStatus('bad', 'Não conectou — toque para tentar');
-      if (!/cancel/i.test(LousaBLE.errStr(e))) toast('Não conectou: ' + LousaBLE.errStr(e), true);
-      return false;
-    }
+  let manualOff = false, connP = null, needPick = false, reconnT = null;
+  // "primeira conexão": vale por apresentação (o Bluefy recarrega a página ao bloquear o iPhone,
+  // então só conta como nova se a lousa ficou mais de 15 min sem uso)
+  function markUse() { try { localStorage.setItem('lousa.lastUse', String(Date.now())); } catch (e) {} }
+  function isFirstConnection() {
+    let last = 0; try { last = +localStorage.getItem('lousa.lastUse') || 0; } catch (e) {}
+    return Date.now() - last > 15 * 60 * 1000;
   }
-  $('#chipBoard').addEventListener('click', () => { if (!board.connected()) connect(); });
+  function afterConnect(first) {
+    setStatus('ok', 'Lousa conectada');
+    if (first && opt.onConnect === 'clear') { log('Primeira conexão: limpando a lousa'); clearBoard(); }
+    markUse();
+  }
+  // conecta (ou reconecta). interactive = você tocou no botão
+  function ensure(interactive) {
+    if (board.connected()) return Promise.resolve(true);
+    if (connP) return connP;
+    connP = (async () => {
+      if (!navigator.bluetooth) { toast('Este navegador não tem Bluetooth. Abra no Bluefy.', true); return false; }
+      const first = isFirstConnection();
+      try {
+        if (!board.device || (interactive && needPick)) {
+          if (!interactive) return false;
+          setStatus('busy', 'Conectando…');
+          await board.pick(); needPick = false;
+          afterConnect(first); return true;
+        }
+        setStatus('busy', 'Reconectando…');
+        for (let i = 1; i <= 3; i++) {
+          try { await board.reconnect(); afterConnect(first); return true; }
+          catch (e) { log('Reconexão ' + i + '/3 falhou: ' + LousaBLE.errStr(e)); if (i < 3) await sleep(1200 * i); }
+        }
+        needPick = true;
+        setStatus('bad', 'Toque para reconectar');
+        return false;
+      } catch (e) {
+        log('Falha ao conectar: ' + LousaBLE.errStr(e));
+        setStatus(board.device ? 'bad' : '', board.device ? 'Toque para reconectar' : 'Conectar lousa');
+        if (!/cancel/i.test(LousaBLE.errStr(e))) toast('Não conectou: ' + LousaBLE.errStr(e), true);
+        return false;
+      }
+    })().finally(() => { connP = null; });
+    return connP;
+  }
+  function autoReconnect(delay) {
+    clearTimeout(reconnT);
+    if (manualOff || !board.device || board.connected()) return;
+    setStatus('busy', 'Reconectando…');
+    reconnT = setTimeout(() => { if (!running) ensure(false); }, delay == null ? 1200 : delay);
+  }
+  // a lousa se desliga sozinha depois de cada imagem: o app reconecta sozinho
+  board.onDisconnect = () => {
+    if (manualOff) { setStatus('', 'Conectar lousa'); return; }
+    if (!running) autoReconnect();
+  };
+  $('#chipBoard').addEventListener('click', () => { if (!board.connected()) { manualOff = false; ensure(true); } });
   $('#btnConn').addEventListener('click', () => {
-    if (board.connected()) { try { board.device.gatt.disconnect(); } catch (e) {} setStatus('', 'Desconectada'); }
-    else connect();
+    if (board.connected()) { manualOff = true; try { board.device.gatt.disconnect(); } catch (e) {} setStatus('', 'Conectar lousa'); }
+    else { manualOff = false; ensure(true); }
+  });
+  // voltou do segundo plano: reconecta
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && board.device && !board.connected() && !manualOff) { log('App voltou para a tela: reconectando'); autoReconnect(300); }
   });
 
   // ---------- desenhar e enviar ----------
@@ -1000,11 +1176,15 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
     return fontsReady;
   }
   waitFonts();
-  let pending = null, running = false;
+  let pending = null, running = false, underPx = null;
+  function clearBoard() { send('clear', {}, 'lousa limpa'); }
   async function send(kind, data, label) {
     await waitFonts();
     const t0 = performance.now();
-    const res = Lousa.render(kind, data, { dust: opt.dust, numerals: opt.numerals, rotate180: opt.rotate180 });
+    const ro = { dust: opt.dust, numerals: opt.numerals, rotate180: opt.rotate180 };
+    if (kind !== 'clear' && underPx && opt.dust) ro.under = underPx;   // 1º envio depois de limpar: mesmas marcas por baixo
+    const res = Lousa.render(kind, data, ro);
+    underPx = kind === 'clear' && opt.dust ? res.px : null;
     showPreview(res.px);
     const comp = QLZ.boardCompress(res.bytes);
     log('Desenho "' + label + '" pronto em ' + Math.round(performance.now() - t0) + ' ms (' + comp.length + ' bytes)');
@@ -1013,51 +1193,63 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
   }
   async function runQueue() {
     running = true;
+    clearTimeout(reconnT);
     while (pending) {
       const job = pending; pending = null;
-      if (!board.connected()) {
-        const ok = await connect();
-        if (!ok) { toast('Lousa não conectada — "' + job.label + '" não foi enviado', true); break; }
-      }
-      try {
-        setStatus('busy', 'Enviando…');
-        const t0 = performance.now();
-        try { await board.sendCompressed(job.comp, bar); }
-        catch (e1) {
-          // 2ª tentativa no modo "com resposta" (mais lento, porém mais seguro no iPhone)
-          if (board.dataMode === 'resp' || !board.connected()) throw e1;
-          log('Falhou (' + e1.message + '). Tentando de novo no modo seguro…');
-          board.dataMode = 'resp';
+      const t0 = performance.now();
+      let okSent = false, lastErr = null;
+      for (let a = 1; a <= 3 && !okSent; a++) {
+        if (pending) break;                       // chegou um pedido mais novo: manda o novo
+        try {
+          if (!board.connected()) {
+            const ok = await ensure(false);
+            if (!ok) throw new Error('Lousa não conectada');
+          }
+          setStatus('busy', a > 1 ? 'Reenviando… (' + a + '/3)' : 'Enviando…');
           await board.sendCompressed(job.comp, bar);
+          okSent = true;
+        } catch (e) {
+          lastErr = e;
+          log('Tentativa ' + a + '/3 falhou: ' + LousaBLE.errStr(e));
+          bar(null);
+          if (a < 3) await sleep(1000);
         }
+      }
+      if (okSent) {
         bar(1); setTimeout(() => bar(null), 400);
-        setStatus('ok', 'Lousa conectada');
         $('#lastTxt').textContent = 'Última enviada: ' + job.label;
         log('Enviado em ' + ((performance.now() - t0) / 1000).toFixed(1) + ' s');
-      } catch (e) {
-        bar(null);
-        log('Falha no envio: ' + LousaBLE.errStr(e));
-        setStatus(board.connected() ? 'bad' : 'bad', board.connected() ? 'Erro ao enviar' : 'Lousa desconectada — toque para reconectar');
-        toast('Não enviou: ' + LousaBLE.errStr(e), true);
+        markUse();
+      } else if (lastErr && !pending) {
+        toast('Não enviou "' + job.label + '": ' + LousaBLE.errStr(lastErr), true);
       }
     }
     running = false;
+    if (board.connected()) setStatus('ok', 'Lousa conectada');
+    else if (board.device && !manualOff) autoReconnect(800);
+    else setStatus(board.device ? 'bad' : '', board.device ? 'Toque para reconectar' : 'Conectar lousa');
   }
 
-  // ---------- carta ----------
-  let suit = 'C';
+  // ---------- carta: naipe, valor e Enviar ----------
+  let suit = 'C', val = null;
+  function drawCardUI() {
+    $('#cSend').disabled = !val;
+    $('#lastCard').textContent = val ? 'Pronto: ' + Lousa.cardName(val, suit) : 'Escolha o naipe e o valor';
+  }
   $$('.suit').forEach(b => b.addEventListener('click', () => {
-    suit = b.dataset.s; $$('.suit').forEach(x => x.classList.toggle('sel', x === b));
+    suit = b.dataset.s; $$('.suit').forEach(x => x.classList.toggle('sel', x === b)); drawCardUI();
   }));
   ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'].forEach(v => {
     const b = document.createElement('button'); b.textContent = v;
-    b.addEventListener('click', () => {
-      const name = Lousa.cardName(v, suit);
-      $('#lastCard').textContent = 'Enviando: ' + name;
-      send('card', { v, s: suit, full: opt.full }, name).then(() => $('#lastCard').textContent = 'Última: ' + name);
-    });
+    b.addEventListener('click', () => { val = v; $$('#vals button').forEach(x => x.classList.toggle('sel', x === b)); drawCardUI(); });
     $('#vals').appendChild(b);
   });
+  $('#cSend').addEventListener('click', () => {
+    if (!val) return;
+    const name = Lousa.cardName(val, suit);
+    send('card', { v: val, s: suit, full: opt.full }, name);
+  });
+  $('#btnClear').addEventListener('click', () => clearBoard());
 
   // ---------- teclados numéricos ----------
   function makePad(el, onKey, okLabel) {
@@ -1142,9 +1334,18 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
     for (let i = 0; i < 64 * 64; i++) { const on = Math.random() < 0.78; const v = on ? 236 : 20; img.data[i * 4] = v; img.data[i * 4 + 1] = v; img.data[i * 4 + 2] = on ? 228 : 22; img.data[i * 4 + 3] = 255; }
     x.putImageData(img, 0, 0); return pctx.createPattern(c, 'repeat');
   }
+  // moldura do tamanho da lousa (3:2): o que fica dentro dela sai igual na lousa
+  let fr = { x: 0, y: 0, w: 960, h: 640 }, lineW = 9;
   function sizePad() {
     dpr = window.devicePixelRatio || 1;
-    pad.width = Math.round(window.innerWidth * dpr); pad.height = Math.round(window.innerHeight * dpr);
+    const vw = window.innerWidth, vh = window.innerHeight;
+    pad.width = Math.round(vw * dpr); pad.height = Math.round(vh * dpr);
+    const tb = $('#escrita .tools').getBoundingClientRect().bottom + 8, m = 10;
+    let h = vh - tb - m, w = h * 1.5;
+    if (w > vw - 2 * m) { w = vw - 2 * m; h = w / 1.5; }
+    fr = { x: (vw - w) / 2, y: tb + (vh - tb - m - h) / 2, w, h };
+    const f = $('#frame'); f.style.left = fr.x + 'px'; f.style.top = fr.y + 'px'; f.style.width = fr.w + 'px'; f.style.height = fr.h + 'px';
+    lineW = 15 * fr.w / 960;                        // mesma grossura que vai sair na lousa
     pattern = chalkPattern(); redrawPad();
   }
   function redrawPad() {
@@ -1152,9 +1353,9 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
     pctx.fillStyle = '#0E0F11'; pctx.fillRect(0, 0, pad.width, pad.height);
     pctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     pctx.strokeStyle = pattern; pctx.fillStyle = pattern;
-    pctx.lineWidth = 9; pctx.lineCap = 'round'; pctx.lineJoin = 'round';
+    pctx.lineWidth = lineW; pctx.lineCap = 'round'; pctx.lineJoin = 'round';
     strokes.forEach(st => {
-      if (st.length === 1) { pctx.beginPath(); pctx.arc(st[0].x, st[0].y, 4.5, 0, 7); pctx.fill(); return; }
+      if (st.length === 1) { pctx.beginPath(); pctx.arc(st[0].x, st[0].y, lineW / 2, 0, 7); pctx.fill(); return; }
       pctx.beginPath(); pctx.moveTo(st[0].x, st[0].y);
       for (let i = 1; i < st.length; i++) pctx.lineTo(st[i].x, st[i].y);
       pctx.stroke();
@@ -1170,7 +1371,8 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
   $('#eClear').addEventListener('click', () => { strokes = []; redrawPad(); });
   $('#eSend').addEventListener('click', () => {
     if (!strokes.length) { toast('Escreva algo primeiro'); return; }
-    send('strokes', { strokes: strokes.map(s => s.slice()) }, 'escrita manual');
+    const list = strokes.map(st => st.map(p => ({ x: (p.x - fr.x) / fr.w, y: (p.y - fr.y) / fr.h })));
+    send('strokes', { strokes: { norm: true, lw: 15, list } }, 'escrita manual');
     toast('Enviando para a lousa…');
   });
   window.addEventListener('resize', () => { if ($('#escrita').classList.contains('on')) sizePad(); });
@@ -1184,8 +1386,17 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
   });
 
   setStatus('', navigator.bluetooth ? 'Conectar lousa' : 'Abra no Bluefy para conectar');
-  log('Lousa v1.0.2 iniciada · Bluetooth: ' + (navigator.bluetooth ? 'sim' : 'não'));
-  drawClockUI(); drawDateUI();
+  log('Lousa v1.0.3 iniciada · Bluetooth: ' + (navigator.bluetooth ? 'sim' : 'não'));
+  drawClockUI(); drawDateUI(); drawCardUI();
+  // ao abrir: volta sozinho para a lousa já usada (se o Bluefy permitir)
+  if (navigator.bluetooth) {
+    const first = isFirstConnection();
+    setStatus('busy', 'Procurando a lousa…');
+    board.restore().then(ok => {
+      if (ok && board.connected()) afterConnect(first);
+      else setStatus('', 'Conectar lousa');
+    }).catch(e => { log('Reconexão ao abrir falhou: ' + LousaBLE.errStr(e)); setStatus(board.device ? 'bad' : '', board.device ? 'Toque para reconectar' : 'Conectar lousa'); });
+  }
 })();
 
 </script>
