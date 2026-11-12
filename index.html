@@ -89,7 +89,7 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
     <button class="tile" data-go="nascimento"><div class="ico" style="font-family:Caveat,cursive">19889</div><b>Data de Nascimento</b><span>dias vividos até hoje</span></button>
     <button class="tile" id="goEscrita"><div class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round"><path d="M4 20l4-1 11-11-3-3L5 16z"/></svg></div><b>Escrita manual</b><span>seu traço em giz</span></button>
   </div>
-  <div class="small" style="margin-top:auto">v1.0 · use no Bluefy</div>
+  <div class="small" style="margin-top:auto">v1.0.1 · use no Bluefy</div>
 </section>
 
 <!-- CARTA -->
@@ -733,6 +733,17 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
 // Serviço FEF0 (ou FDF0/FCF0/FBF0): FxF1 = comandos (escreve e avisa), FxF2 = dados da imagem.
 (function (root) {
   const SERVICES = [0xfef0, 0xfdf0, 0xfcf0, 0xfbf0];
+  // códigos na forma longa (o Bluefy não aceita a forma curta)
+  const U = (n) => '0000' + n.toString(16).padStart(4, '0') + '-0000-1000-8000-00805f9b34fb';
+  const SVC_U = SERVICES.map(U);
+  function errStr(e) {
+    if (e == null) return 'erro sem descrição';
+    if (typeof e === 'string') return e;
+    let t = (e.name ? e.name + ': ' : '') + (e.message || '');
+    if (!t.trim() || t === 'Error: ') { try { t = JSON.stringify(e) || String(e); } catch (x) { t = String(e); } }
+    return t;
+  }
+  function isCancel(e) { return /cancel/i.test(errStr(e)); }
 
   function Board(log) {
     this.log = log || function () {};
@@ -744,9 +755,24 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
   Board.prototype.connected = function () { return !!(this.device && this.device.gatt && this.device.gatt.connected && this.ctrl); };
 
   Board.prototype.pick = async function () {
-    const filters = SERVICES.map(s => ({ services: [s] }));
-    filters.push({ namePrefix: 'NEMR' });
-    this.device = await navigator.bluetooth.requestDevice({ filters, optionalServices: SERVICES });
+    const tries = [
+      ['pelo serviço', { filters: SVC_U.map(u => ({ services: [u] })), optionalServices: SVC_U }],
+      ['pelo nome NEMR', { filters: [{ namePrefix: 'NEMR' }], optionalServices: SVC_U }],
+      ['todos os aparelhos', { acceptAllDevices: true, optionalServices: SVC_U }],
+    ];
+    let lastErr = null;
+    for (const [nome, opts] of tries) {
+      try {
+        this.log('Procurando ' + nome + '…');
+        this.device = await navigator.bluetooth.requestDevice(opts);
+        lastErr = null; break;
+      } catch (e) {
+        lastErr = e;
+        this.log('Busca ' + nome + ' falhou: ' + errStr(e));
+        if (isCancel(e)) break;      // você fechou a lista: não insiste
+      }
+    }
+    if (lastErr) throw new Error(errStr(lastErr));
     this.log('Escolhida: ' + (this.device.name || '(sem nome)'));
     this.device.addEventListener('gattserverdisconnected', () => {
       this.log('Lousa desconectou'); this.ctrl = null; this.data = null;
@@ -758,12 +784,12 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
   Board.prototype.attach = async function () {
     const server = await this.device.gatt.connect();
     let svc = null, base = 0;
-    for (const s of SERVICES) {
-      try { svc = await server.getPrimaryService(s); base = s; break; } catch (e) { /* tenta o próximo */ }
+    for (const n of SERVICES) {
+      try { svc = await server.getPrimaryService(U(n)); base = n; break; } catch (e) { /* tenta o próximo */ }
     }
-    if (!svc) throw new Error('Serviço da lousa não encontrado');
-    this.ctrl = await svc.getCharacteristic(base + 1);
-    this.data = await svc.getCharacteristic(base + 2);
+    if (!svc) throw new Error('Este aparelho não é a lousa (serviço FEF0 não encontrado)');
+    this.ctrl = await svc.getCharacteristic(U(base + 1));
+    this.data = await svc.getCharacteristic(U(base + 2));
     await this.ctrl.startNotifications();
     this.ctrl.addEventListener('characteristicvaluechanged', (ev) => this.onNotify(new Uint8Array(ev.target.value.buffer.slice(ev.target.value.byteOffset, ev.target.value.byteOffset + ev.target.value.byteLength))));
     this.log('Conectada (serviço ' + base.toString(16).toUpperCase() + ')');
@@ -859,7 +885,7 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
     }
   };
 
-  const api = { Board, SERVICES };
+  const api = { Board, SERVICES, errStr };
   if (typeof module !== 'undefined') module.exports = api; else root.LousaBLE = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -923,9 +949,9 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
       setStatus('ok', 'Lousa conectada');
       return true;
     } catch (e) {
-      log('Falha ao conectar: ' + e.message);
+      log('Falha ao conectar: ' + LousaBLE.errStr(e));
       setStatus('bad', 'Não conectou — toque para tentar');
-      if (!/cancel/i.test(e.message)) toast('Não conectou: ' + e.message, true);
+      if (!/cancel/i.test(LousaBLE.errStr(e))) toast('Não conectou: ' + LousaBLE.errStr(e), true);
       return false;
     }
   }
@@ -984,9 +1010,9 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
         log('Enviado em ' + ((performance.now() - t0) / 1000).toFixed(1) + ' s');
       } catch (e) {
         bar(null);
-        log('Falha no envio: ' + e.message);
+        log('Falha no envio: ' + LousaBLE.errStr(e));
         setStatus(board.connected() ? 'bad' : 'bad', board.connected() ? 'Erro ao enviar' : 'Lousa desconectada — toque para reconectar');
-        toast('Não enviou: ' + e.message, true);
+        toast('Não enviou: ' + LousaBLE.errStr(e), true);
       }
     }
     running = false;
@@ -1132,7 +1158,7 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
   });
 
   setStatus('', navigator.bluetooth ? 'Conectar lousa' : 'Abra no Bluefy para conectar');
-  log('Lousa v1.0 iniciada · Bluetooth: ' + (navigator.bluetooth ? 'sim' : 'não'));
+  log('Lousa v1.0.1 iniciada · Bluetooth: ' + (navigator.bluetooth ? 'sim' : 'não'));
   drawClockUI(); drawDateUI();
 })();
 
