@@ -1,0 +1,1141 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Lousa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&display=swap">
+<style>
+:root{--bg:#16181C;--card:#23262C;--line:#2F333A;--text:#F2EDE4;--muted:#A9AEB6;--accent:#C8733A;--wood:#9A5A32;--ok:#4CC38A;--bad:#E5534B}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;-webkit-user-select:none;user-select:none;overscroll-behavior:none}
+button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
+.screen{display:none;min-height:100%;padding:calc(env(safe-area-inset-top) + 16px) 18px calc(env(safe-area-inset-bottom) + 20px);flex-direction:column;gap:14px}
+.screen.on{display:flex}
+.top{display:flex;align-items:center;gap:12px;min-height:44px}
+.title{font-weight:700;font-size:20px}
+.logo{font-family:Caveat,cursive;font-size:40px;line-height:1;flex:1}
+.ibtn{width:44px;height:44px;border-radius:12px;background:var(--card);display:flex;align-items:center;justify-content:center;flex:none}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{display:flex;align-items:center;gap:8px;background:var(--card);border-radius:999px;padding:8px 14px;font-size:13px}
+.dot{width:10px;height:10px;border-radius:50%;background:#8A8F98;flex:none}
+.dot.ok{background:var(--ok)}.dot.bad{background:var(--bad)}.dot.busy{background:#E0A43C}
+.board{border:10px solid var(--wood);border-radius:10px;background:#0E0F11;line-height:0;position:relative}
+.board canvas{width:100%;height:auto;display:block;aspect-ratio:3/2}
+.board .empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:Caveat,cursive;font-size:30px;color:#6b6f76;line-height:1}
+.small{font-size:13px;color:var(--muted);text-align:center}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.tile{background:var(--card);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:6px;min-height:92px;text-align:left}
+.tile b{font-size:16px}.tile span{font-size:12px;color:var(--muted)}
+.tile .ico{font-size:26px;line-height:1;height:28px}
+.big{height:54px;border-radius:14px;background:var(--accent);color:#fff;font-weight:700;font-size:17px;width:100%}
+.big:disabled{background:#3A3D44;color:#8A8F98}
+.big.alt{background:var(--card);color:var(--text)}
+.label{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+.suits{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.suit{height:64px;border-radius:14px;font-size:34px;background:var(--card);border:2px solid var(--card)}
+.suit.red{color:#FF7A6B}.suit.sel{border-color:var(--accent);background:#2E2620}
+.vals{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.vals button,.pad button{height:54px;border-radius:12px;background:var(--card);font-size:21px;font-weight:600}
+.vals button:active,.pad button:active,.suit:active,.tile:active{transform:scale(.97);filter:brightness(1.2)}
+.pad{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.display{font-size:52px;font-weight:700;letter-spacing:3px;text-align:center;font-variant-numeric:tabular-nums}
+.display .act{color:var(--accent)}
+.display.err{color:var(--bad);animation:shake .35s}
+@keyframes shake{0%,100%{transform:none}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+.list{background:var(--card);border-radius:14px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 16px;border-bottom:1px solid var(--line);min-height:52px}
+.row:last-child{border-bottom:none}
+.row label{flex:1}
+.sw{appearance:none;-webkit-appearance:none;width:52px;height:32px;border-radius:999px;background:#3A3D44;position:relative;flex:none;transition:.2s}
+.sw:checked{background:var(--accent)}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:50%;background:#fff;transition:.2s}
+.sw:checked::after{left:23px}
+.mini{height:36px;padding:0 14px;border-radius:10px;background:#3A3D44;font-size:14px;font-weight:600}
+#log{font:11px/1.4 ui-monospace,Menlo,monospace;color:var(--muted);white-space:pre-wrap;max-height:180px;overflow:auto;background:#0E0F11;border-radius:10px;padding:10px;-webkit-user-select:text;user-select:text}
+#bar{position:fixed;left:0;right:0;top:0;height:4px;z-index:50;background:transparent}
+#bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .15s}
+#toast{position:fixed;left:16px;right:16px;bottom:calc(env(safe-area-inset-bottom) + 18px);background:#2B2E35;border-radius:12px;padding:12px 14px;font-size:14px;z-index:60;opacity:0;transform:translateY(10px);transition:.25s;pointer-events:none}
+#toast.on{opacity:1;transform:none}#toast.bad{background:#5a2422}
+/* escrita manual */
+#escrita{position:fixed;inset:0;background:#0E0F11;display:none;z-index:40;padding:0}
+#escrita.on{display:block}
+#pad{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+#escrita .tools{position:absolute;top:calc(env(safe-area-inset-top) + 10px);left:calc(env(safe-area-inset-left) + 12px);right:calc(env(safe-area-inset-right) + 12px);display:flex;justify-content:space-between;pointer-events:none}
+#escrita .tools>div{display:flex;gap:10px}
+#escrita .tools button{pointer-events:auto;background:rgba(255,255,255,.08)}
+#escrita .send{height:44px;padding:0 18px;border-radius:12px;background:var(--accent)!important;color:#fff;font-weight:700}
+#rotate{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px;color:var(--muted);font-size:16px;text-align:center;padding:30px;pointer-events:none}
+@media (orientation:portrait){#rotate{display:flex}}
+</style>
+</head>
+<body>
+<div id="bar"><i></i></div>
+
+<!-- INÍCIO -->
+<section class="screen on" id="s-inicio">
+  <div class="top"><div class="logo">Lousa</div>
+    <button class="ibtn" data-go="opcoes" aria-label="Opções"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></button></div>
+  <div class="chips"><button class="chip" id="chipBoard"><span class="dot" id="dotBoard"></span><span id="txtBoard">Conectar lousa</span></button></div>
+  <div class="board"><canvas class="pv"></canvas><div class="empty">nada enviado ainda</div></div>
+  <div class="small" id="lastTxt">Última enviada: —</div>
+  <div class="grid2">
+    <button class="tile" data-go="carta"><div class="ico">♠</div><b>Carta</b><span>teclado de cartas</span></button>
+    <button class="tile" data-go="relogio"><div class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><b>Relógio</b><span>hora com ponteiros</span></button>
+    <button class="tile" data-go="nascimento"><div class="ico" style="font-family:Caveat,cursive">19889</div><b>Data de Nascimento</b><span>dias vividos até hoje</span></button>
+    <button class="tile" id="goEscrita"><div class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round"><path d="M4 20l4-1 11-11-3-3L5 16z"/></svg></div><b>Escrita manual</b><span>seu traço em giz</span></button>
+  </div>
+  <div class="small" style="margin-top:auto">v1.0 · use no Bluefy</div>
+</section>
+
+<!-- CARTA -->
+<section class="screen" id="s-carta">
+  <div class="top"><button class="ibtn" data-go="inicio" aria-label="Voltar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg></button><div class="title">Carta</div></div>
+  <div class="board"><canvas class="pv"></canvas><div class="empty">nada enviado ainda</div></div>
+  <div class="small" id="lastCard">Toque no naipe e depois no valor</div>
+  <div class="label">1. Naipe</div>
+  <div class="suits">
+    <button class="suit" data-s="S" aria-label="Espadas">♠</button>
+    <button class="suit red" data-s="H" aria-label="Copas">♥</button>
+    <button class="suit sel" data-s="C" aria-label="Paus">♣</button>
+    <button class="suit red" data-s="D" aria-label="Ouros">♦</button>
+  </div>
+  <div class="label">2. Valor — envia na hora</div>
+  <div class="vals" id="vals"></div>
+  <div class="list" style="margin-top:auto"><div class="row"><label for="optFull">Mandar nome por extenso</label><input type="checkbox" class="sw" id="optFull"></div></div>
+</section>
+
+<!-- RELÓGIO -->
+<section class="screen" id="s-relogio">
+  <div class="top"><button class="ibtn" data-go="inicio" aria-label="Voltar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg></button><div class="title">Relógio</div></div>
+  <div class="board"><canvas class="pv"></canvas><div class="empty">nada enviado ainda</div></div>
+  <div class="display" id="hDisp"><span id="hh">--</span> : <span id="mm">--</span></div>
+  <div class="small" id="hHint">Digite a hora</div>
+  <div class="pad" id="hPad"></div>
+  <button class="big" id="hSend" disabled>Enviar</button>
+</section>
+
+<!-- DATA DE NASCIMENTO -->
+<section class="screen" id="s-nascimento">
+  <div class="top"><button class="ibtn" data-go="inicio" aria-label="Voltar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg></button><div class="title">Data de Nascimento</div></div>
+  <div class="board"><canvas class="pv"></canvas><div class="empty">nada enviado ainda</div></div>
+  <div class="display" id="dDisp">__/__/__</div>
+  <div class="small" id="dHint">Digite dia, mês e ano (2 dígitos)</div>
+  <div class="pad" id="dPad"></div>
+  <button class="big" id="dSend" disabled>Enviar</button>
+</section>
+
+<!-- OPÇÕES -->
+<section class="screen" id="s-opcoes">
+  <div class="top"><button class="ibtn" data-go="inicio" aria-label="Voltar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg></button><div class="title">Opções</div></div>
+  <div class="label">Lousa</div>
+  <div class="list">
+    <div class="row"><div><div id="optName">Nenhuma lousa</div><div class="small" style="text-align:left" id="optState">desconectada</div></div><button class="mini" id="btnConn">Conectar</button></div>
+    <div class="row"><label for="optDust">Sujeirinha de giz</label><input type="checkbox" class="sw" id="optDust"></div>
+    <div class="row"><label for="optNum">Relógio com numerais</label><input type="checkbox" class="sw" id="optNum"></div>
+    <div class="row"><label for="optRot">Girar imagem 180°</label><input type="checkbox" class="sw" id="optRot"></div>
+    <div class="row"><span>Teste</span><button class="mini" id="btnTest">Enviar 10:10</button></div>
+  </div>
+  <div class="label">Registro</div>
+  <div id="log"></div>
+  <button class="big alt" id="btnCopy">Copiar registro</button>
+</section>
+
+<!-- ESCRITA MANUAL -->
+<div id="escrita">
+  <canvas id="pad"></canvas>
+  <div id="rotate"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#A9AEB6" stroke-width="1.6" stroke-linecap="round"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M3 12a9 9 0 0 1 4-7.5M21 12a9 9 0 0 1-4 7.5"/></svg>Gire o iPhone para deitado</div>
+  <div class="tools">
+    <div><button class="ibtn" id="eBack" aria-label="Voltar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg></button></div>
+    <div>
+      <button class="ibtn" id="eUndo" aria-label="Desfazer"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 010 10h-3"/></svg></button>
+      <button class="ibtn" id="eClear" aria-label="Apagar tudo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button>
+      <button class="send" id="eSend">Enviar à lousa</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// QuickLZ 1.5.0, nivel 1, buffer de streaming 64, 64 valores de hash.
+// Mesmo formato usado pelo Inversion Board (lib "ble_jni" do app PITATA Pro).
+// A imagem e comprimida em pedacos de 64 bytes, com 4 bytes (tamanho original) na frente.
+(function (root) {
+  const HASH_VALUES = 64;
+  const UNCONDITIONAL_MATCHLEN = 6;
+  const UNCOMPRESSED_END = 4;
+  const MINOFFSET = 2;
+  const CWORD_LEN = 4;
+
+  function hashFunc(i) {
+    return ((i >>> 12) ^ i) & (HASH_VALUES - 1);
+  }
+
+  function newState() {
+    return {
+      cache: new Uint32Array(HASH_VALUES),
+      offset: new Int32Array(HASH_VALUES).fill(-1), // -1 = vazio
+      buf: new Uint8Array(64),
+      counter: 0,
+    };
+  }
+
+  function resetTable(st) {
+    st.offset.fill(-1);
+  }
+
+  function write32(d, p, v) {
+    d[p] = v & 255; d[p + 1] = (v >>> 8) & 255; d[p + 2] = (v >>> 16) & 255; d[p + 3] = (v >>> 24) & 255;
+  }
+  function write16(d, p, v) { d[p] = v & 255; d[p + 1] = (v >>> 8) & 255; }
+  function write24(d, p, v) { d[p] = v & 255; d[p + 1] = (v >>> 8) & 255; d[p + 2] = (v >>> 16) & 255; }
+
+  // Comprime "size" bytes de s (a partir de 0). Retorna o numero de bytes gravados em out (a partir de outPos),
+  // ou 0 se nao compensa comprimir.
+  function core(s, size, out, outPos, st) {
+    const lastByte = size - 1;
+    let src = 0;
+    let cwordPtr = outPos;
+    let dst = outPos + CWORD_LEN;
+    let cword = 0x80000000 >>> 0;
+    const lastMatchStart = lastByte - UNCONDITIONAL_MATCHLEN - UNCOMPRESSED_END;
+    let fetch = 0;
+    let lits = 0;
+    const rd3 = (p) => s[p] | (s[p + 1] << 8) | (s[p + 2] << 16);
+    const same = (p, n) => { for (let k = n; k > 0; k--) if (s[p + k] !== s[p]) return false; return true; };
+
+    if (src <= lastMatchStart) fetch = rd3(src);
+    while (src <= lastMatchStart) {
+      if ((cword & 1) === 1) {
+        if (src > (size >> 1) && (dst - outPos) > src - (src >> 5)) return 0;
+        write32(out, cwordPtr, ((cword >>> 1) | 0x80000000) >>> 0);
+        cwordPtr = dst;
+        dst += CWORD_LEN;
+        cword = 0x80000000 >>> 0;
+        fetch = rd3(src);
+      }
+      let hash = hashFunc(fetch);
+      const cached = (fetch ^ st.cache[hash]) >>> 0;
+      st.cache[hash] = fetch;
+      const o = st.offset[hash];
+      st.offset[hash] = src;
+      if (cached === 0 && o !== -1 &&
+          (src - o > MINOFFSET || (src === o + 1 && lits >= 3 && src > 3 && same(src - 3, 6)))) {
+        if (s[o + 3] !== s[src + 3]) {
+          hash <<= 4;
+          cword = ((cword >>> 1) | 0x80000000) >>> 0;
+          write16(out, dst, (3 - 2) | hash);
+          src += 3;
+          dst += 2;
+        } else {
+          const oldSrc = src;
+          hash <<= 4;
+          cword = ((cword >>> 1) | 0x80000000) >>> 0;
+          src += 4;
+          if (s[o + (src - oldSrc)] === s[src]) {
+            src++;
+            if (s[o + (src - oldSrc)] === s[src]) {
+              const q = lastByte - UNCOMPRESSED_END - (src - 5) + 1;
+              const remaining = q > 255 ? 255 : q;
+              src++;
+              while (s[o + (src - oldSrc)] === s[src] && (src - oldSrc) < remaining) src++;
+            }
+          }
+          const matchlen = src - oldSrc;
+          if (matchlen < 18) {
+            write16(out, dst, (matchlen - 2) | hash);
+            dst += 2;
+          } else {
+            write24(out, dst, ((matchlen << 16) | hash) >>> 0);
+            dst += 3;
+          }
+        }
+        fetch = rd3(src);
+        lits = 0;
+      } else {
+        lits++;
+        out[dst++] = s[src++];
+        cword = cword >>> 1;
+        fetch = ((fetch >>> 8) & 0xffff) | (s[src + 2] << 16);
+      }
+    }
+    while (src <= lastByte) {
+      if ((cword & 1) === 1) {
+        write32(out, cwordPtr, ((cword >>> 1) | 0x80000000) >>> 0);
+        cwordPtr = dst;
+        dst += CWORD_LEN;
+        cword = 0x80000000 >>> 0;
+      }
+      if (src <= lastByte - 3) {
+        const f = rd3(src);
+        const h = hashFunc(f);
+        st.offset[h] = src;
+        st.cache[h] = f;
+      }
+      out[dst++] = s[src++];
+      cword = cword >>> 1;
+    }
+    while ((cword & 1) !== 1) cword = cword >>> 1;
+    write32(out, cwordPtr, ((cword >>> 1) | 0x80000000) >>> 0);
+    const n = dst - outPos;
+    return n < 9 ? 9 : n;
+  }
+
+  // Igual a qlz_compress() com streaming de 64 bytes.
+  function compressChunk(chunk, out, outPos, st) {
+    const size = chunk.length;
+    const base = size < 216 ? 3 : 9;
+    let r, compressed;
+    // copia para o buffer interno (os ponteiros "o" apontam para la)
+    let s;
+    if (st.counter + size - 1 >= 64) {
+      resetTable(st);
+      s = chunk;
+      const n = core(s, size, out, outPos + base, st);
+      resetTable(st);
+      if (n === 0) {
+        out.set(chunk, outPos + base);
+        r = size + base; compressed = 0;
+      } else { r = n + base; compressed = 1; }
+      st.counter = 0;
+    } else {
+      // regiao do buffer a partir de st.counter (aqui sempre 0, pois os pedacos tem 64 bytes)
+      st.buf.set(chunk, st.counter);
+      s = st.counter === 0 ? st.buf.subarray(0, size) : st.buf.subarray(st.counter, st.counter + size);
+      const n = core(s, size, out, outPos + base, st);
+      if (n === 0) {
+        out.set(chunk, outPos + base);
+        r = size + base; compressed = 0;
+        resetTable(st);
+      } else { r = n + base; compressed = 1; }
+      st.counter += size;
+    }
+    if (base === 3) {
+      out[outPos] = 0 | compressed;
+      out[outPos + 1] = r & 255;
+      out[outPos + 2] = size & 255;
+    } else {
+      out[outPos] = 2 | compressed;
+      write32(out, outPos + 1, r);
+      write32(out, outPos + 5, size);
+    }
+    out[outPos] |= (1 << 2) | (1 << 6) | (3 << 4);
+    return r;
+  }
+
+  // Igual ao "compress" nativo: [tamanho original u32 LE] + pedacos de 64 bytes comprimidos.
+  function boardCompress(data) {
+    const st = newState();
+    const out = new Uint8Array(4 + Math.ceil(data.length / 64) * (64 + 400));
+    write32(out, 0, data.length);
+    let pos = 4;
+    for (let i = 0; i < data.length; i += 64) {
+      const chunk = data.subarray(i, Math.min(i + 64, data.length));
+      pos += compressChunk(chunk, out, pos, st);
+    }
+    return out.slice(0, pos);
+  }
+
+  const api = { boardCompress };
+  if (typeof module !== 'undefined') module.exports = api; else root.QLZ = api;
+})(this);
+
+</script>
+<script>
+// ===== Lousa: desenho em giz + conversão para a tela 960x640 preto e branco =====
+(function (root) {
+  const W = 960, H = 640, S = 2;
+  const FONT = '"Caveat", "Bradley Hand", cursive';
+  const WGT = '500 ';
+
+  function rng(seed) {
+    let s = seed >>> 0;
+    return function () {
+      s = (s + 0x6D2B79F5) | 0;
+      let t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function gauss(r) { let u = 0; while (!u) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * r()); }
+  function uni(r, a, b) { return a + (b - a) * r(); }
+  function makeCanvas(w, h) {
+    if (root.__makeCanvas) return root.__makeCanvas(w, h);
+    const c = document.createElement('canvas'); c.width = w; c.height = h; return c;
+  }
+  function newMask() {
+    const c = makeCanvas(W * S, H * S);
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.fillStyle = '#fff'; ctx.strokeStyle = '#fff';
+    return { c, ctx };
+  }
+  function dot(ctx, x, y, r) { ctx.beginPath(); ctx.arc(x, y, Math.max(r, 0.5), 0, Math.PI * 2); ctx.fill(); }
+  function tapered(ctx, x1, y1, x2, y2, w1, w2, steps) {
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      dot(ctx, x1 + (x2 - x1) * t, y1 + (y2 - y1) * t, (w1 + (w2 - w1) * t) / 2);
+    }
+  }
+
+  // ---------- Relógio (modelo v10 aprovado) ----------
+  function drawClock(ctx, h, m, r, numerals) {
+    const cx = W / 2 * S, cy = (H / 2 + 8) * S, R = 262 * S;
+    const seed = r() * 6;
+    function circ(a0, a1, rr, dr, w) {
+      const n = Math.floor(Math.abs(a1 - a0) / 1.5) + 2;
+      for (let i = 0; i <= n; i++) {
+        const t = i / n, a = (a0 + (a1 - a0) * t) * Math.PI / 180;
+        const rad = rr + dr * t + R * 0.006 * Math.sin(3 * a + seed);
+        dot(ctx, cx + rad * Math.cos(a), cy + rad * Math.sin(a), w);
+      }
+    }
+    const start = uni(r, -150, -130);
+    circ(start, start + 360, R, 0, 6.5 * S);
+    circ(start - 5, start + uni(r, 38, 55), R + 2 * S, uni(r, 11, 15) * S, 5 * S);
+    for (let k = 0; k < 12; k++) {
+      const a = (k * 30 - 90 + uni(r, -2, 2)) * Math.PI / 180;
+      const L = (k % 3 === 0 ? 62 : 34) * S, w = (k % 3 === 0 ? 15 : 14) * S;
+      const out = R + L * 0.45, inn = R - L * 0.55;
+      tapered(ctx, cx + out * Math.cos(a), cy + out * Math.sin(a), cx + inn * Math.cos(a), cy + inn * Math.sin(a), w, w, 20);
+    }
+    if (numerals) {
+      ctx.save();
+      ctx.font = '700 ' + (78 * S) + 'px ' + FONT;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.lineWidth = 3 * S; ctx.lineJoin = 'round';
+      [[0, '12'], [3, '3'], [6, '6'], [9, '9']].forEach(([k, t]) => {
+        const a = (k * 30 - 90) * Math.PI / 180, rr = R - 100 * S;
+        const x = cx + rr * Math.cos(a), y = cy + rr * Math.sin(a);
+        ctx.save(); ctx.translate(x, y); ctx.rotate(uni(r, -0.05, 0.05));
+        ctx.fillText(t, 0, 0); ctx.strokeText(t, 0, 0); ctx.restore();
+      });
+      ctx.restore();
+    }
+    function hand(ang, length, w0, w1) {
+      const bend = uni(r, -0.03, 0.03);
+      for (let pas = 0; pas < 3; pas++) {
+        const off = uni(r, -2.5, 2.5) * S, ph = uni(r, 0, 6);
+        const endt = pas === 0 ? 1 : uni(r, 0.8, 0.98);
+        for (let i = 0; i <= 70; i++) {
+          const t = endt * i / 70;
+          const a = ang + bend * Math.sin(Math.PI * t);
+          const rad = length * t;
+          const px = cx + rad * Math.cos(a) + off * Math.cos(ang + Math.PI / 2);
+          const py = cy + rad * Math.sin(a) + off * Math.sin(ang + Math.PI / 2);
+          let w = (w0 + (w1 - w0) * t) * (1 + 0.08 * Math.sin(6 * t + ph) + 0.05 * Math.sin(15 * t + 2 * ph)) * (pas === 0 ? 1 : 0.75) / 2;
+          w *= 1 + 0.10 * Math.exp(-Math.pow((t - 0.85) / 0.07, 2));
+          dot(ctx, px, py, w);
+        }
+      }
+    }
+    const ah = ((h % 12) * 30 + m * 0.5 - 90) * Math.PI / 180, am = (m * 6 - 90) * Math.PI / 180;
+    hand(ah, 141 * S, 25 * S, 22 * S);
+    hand(am, 212 * S, 15 * S, 18 * S);
+    for (let i = 0; i < 7; i++) {
+      const ox = gauss(r) * 2.5 * S, oy = gauss(r) * 2.5 * S, rr = uni(r, 14, 19) * S;
+      ctx.beginPath(); ctx.ellipse(cx + ox, cy + oy, rr, rr * uni(r, 0.85, 1), 0, 0, Math.PI * 2); ctx.fill();
+    }
+    return { x: W / 2, y: H / 2 + 8, rad: 245 };
+  }
+
+  // ---------- Texto (números, palavras) com a altura em primeiro lugar ----------
+  function measure(ctx, text, F) {
+    ctx.font = WGT + F + 'px ' + FONT;
+    let w = 0, asc = 0, desc = 0; const ws = [];
+    for (const ch of text) {
+      const mm = ctx.measureText(ch);
+      ws.push(mm.width);
+      w += mm.width;
+      asc = Math.max(asc, mm.actualBoundingBoxAscent || F * 0.7);
+      desc = Math.max(desc, mm.actualBoundingBoxDescent || 0);
+    }
+    const whole = ctx.measureText(text);
+    const inkL = whole.actualBoundingBoxLeft || 0;
+    const inkR = whole.actualBoundingBoxRight || whole.width;
+    const extra = Math.max(0, inkL + inkR - whole.width);   // parte da letra que passa da largura oficial
+    return { w: w + extra, asc, desc, ws, extra, inkL, inkR: inkR - whole.width };
+  }
+  // devolve linhas posicionadas (em px da lousa) para caber em boxW x boxH
+  function layoutText(ctx, text, boxW, boxH) {
+    const tryLines = (lines) => {
+      const base = 100;
+      const ms = lines.map(l => measure(ctx, l, base));
+      const lineH = Math.max(...ms.map(m => m.asc + m.desc)) * 1.08;
+      const totalH = lineH * lines.length;
+      let F = base * boxH / totalH;                        // altura em primeiro lugar
+      let spacing = 0;
+      const maxW = Math.max(...ms.map(m => m.w)) * F / base;
+      if (maxW > boxW) {
+        // 1º aproxima as letras (até -6% da altura), 2º só então diminui
+        const n = Math.max(...lines.map(l => [...l].length));
+        const need = (maxW - boxW) / Math.max(n - 1, 1);
+        spacing = -Math.min(need, F * 0.06);
+        const wNow = maxW + spacing * (n - 1);
+        if (wNow > boxW) F = F * boxW / wNow, spacing = spacing * boxW / wNow;
+      }
+      return { lines, F, spacing, score: F * lines.length };
+    };
+    let best = tryLines([text]);
+    const words = text.trim().split(/\s+/);
+    if (words.length > 1) {
+      for (let i = 1; i < words.length; i++) {
+        const cand = tryLines([words.slice(0, i).join(' '), words.slice(i).join(' ')]);
+        if (cand.F > best.F * 1.25) best = cand;
+      }
+    }
+    return best;
+  }
+  function drawText(ctx, text, r, box) {
+    box = box || { x: W / 2, y: H / 2, w: W * 0.86, h: H * 0.72 };
+    const L = layoutText(ctx, text, box.w, box.h);
+    const F = L.F;
+    ctx.save();
+    ctx.font = WGT + (F * S) + 'px ' + FONT;
+    ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+    ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(1, F * 0.012) * S;
+    const ms = L.lines.map(l => measure(ctx, l, F));
+    const lineH = Math.max(...ms.map(m => m.asc + m.desc)) * 1.08;
+    const totalH = lineH * L.lines.length;
+    let top = box.y - totalH / 2;
+    let minX = 1e9, maxX = -1e9;
+    ctx.font = WGT + (F * S) + 'px ' + FONT;
+    L.lines.forEach((line, li) => {
+      const m = ms[li];
+      const chars = [...line];
+      const width = m.w + L.spacing * (chars.length - 1);
+      const adv = m.w - (m.extra || 0);
+      let x = box.x - (adv + L.spacing * (chars.length - 1) + (m.inkR || 0) - (m.inkL || 0)) / 2;
+      const baseY = top + li * lineH + m.asc + (lineH - (m.asc + m.desc)) / 2;
+      minX = Math.min(minX, x); maxX = Math.max(maxX, x + width);
+      chars.forEach((ch, i) => {
+        const cw = m.ws[i];
+        ctx.save();
+        ctx.translate((x + cw / 2) * S, (baseY + gauss(r) * F * 0.012) * S);
+        ctx.rotate(uni(r, -0.05, 0.05));
+        const sc = uni(r, 0.97, 1.03); ctx.scale(sc, sc);
+        ctx.fillText(ch, -cw / 2 * S, 0); ctx.strokeText(ch, -cw / 2 * S, 0);
+        ctx.restore();
+        x += cw + L.spacing;
+      });
+    });
+    ctx.restore();
+    return { x: (minX + maxX) / 2, y: box.y, rad: Math.max(maxX - minX, totalH) / 2 + 30, F, lines: L.lines };
+  }
+
+  // ---------- Naipes desenhados ----------
+  function suitPath(ctx, kind) {
+    ctx.beginPath();
+    if (kind === 'H') {
+      ctx.moveTo(0, 0.92);
+      ctx.bezierCurveTo(-1.0, 0.15, -1.05, -0.75, -0.5, -0.8);
+      ctx.bezierCurveTo(-0.2, -0.83, 0, -0.6, 0, -0.4);
+      ctx.bezierCurveTo(0, -0.6, 0.2, -0.83, 0.5, -0.8);
+      ctx.bezierCurveTo(1.05, -0.75, 1.0, 0.15, 0, 0.92);
+    } else if (kind === 'D') {
+      ctx.moveTo(0, -1);
+      ctx.quadraticCurveTo(0.28, -0.4, 0.74, 0);
+      ctx.quadraticCurveTo(0.28, 0.4, 0, 1);
+      ctx.quadraticCurveTo(-0.28, 0.4, -0.74, 0);
+      ctx.quadraticCurveTo(-0.28, -0.4, 0, -1);
+    } else if (kind === 'S') {
+      ctx.moveTo(0, -0.95);
+      ctx.bezierCurveTo(-0.95, -0.25, -1.0, 0.38, -0.5, 0.45);
+      ctx.bezierCurveTo(-0.25, 0.48, -0.08, 0.35, 0, 0.2);
+      ctx.bezierCurveTo(0.08, 0.35, 0.25, 0.48, 0.5, 0.45);
+      ctx.bezierCurveTo(1.0, 0.38, 0.95, -0.25, 0, -0.95);
+      ctx.moveTo(0, 0.12);
+      ctx.quadraticCurveTo(0.06, 0.72, 0.4, 0.95);
+      ctx.lineTo(-0.4, 0.95);
+      ctx.quadraticCurveTo(-0.06, 0.72, 0, 0.12);
+    } else { // C (paus)
+      ctx.moveTo(0.36, -0.5); ctx.arc(0, -0.5, 0.36, 0, Math.PI * 2);
+      ctx.moveTo(-0.1, 0.12); ctx.arc(-0.46, 0.12, 0.36, 0, Math.PI * 2);
+      ctx.moveTo(0.82, 0.12); ctx.arc(0.46, 0.12, 0.36, 0, Math.PI * 2);
+      ctx.moveTo(-0.2, -0.3); ctx.lineTo(0.2, -0.3); ctx.lineTo(0.25, 0.2); ctx.lineTo(-0.25, 0.2); ctx.closePath();
+      ctx.moveTo(0, 0.0);
+      ctx.quadraticCurveTo(0.06, 0.72, 0.4, 0.95);
+      ctx.lineTo(-0.4, 0.95);
+      ctx.quadraticCurveTo(-0.06, 0.72, 0, 0.0);
+    }
+  }
+  function drawSuit(ctx, kind, cx, cy, size, r) {
+    // size = altura total em px da lousa
+    const k = size / 2 * S;
+    ctx.save();
+    ctx.translate(cx * S, cy * S);
+    ctx.rotate(uni(r, -0.06, 0.06));
+    ctx.scale(k * uni(r, 0.97, 1.03), k);
+    suitPath(ctx, kind);
+    ctx.fillStyle = '#fff';
+    ctx.fill('nonzero');
+    ctx.lineWidth = 0.04; ctx.strokeStyle = '#fff'; ctx.stroke();
+    // giz passado de lado: alguns riscos escuros dentro do desenho
+    ctx.save();
+    suitPath(ctx, kind); ctx.clip();
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineCap = 'round';
+    ctx.setLineDash([0.08, 0.05]);
+    const n = 5 + Math.floor(r() * 4);
+    for (let i = 0; i < n; i++) {
+      const y0 = uni(r, -0.8, 0.8), x0 = uni(r, -0.8, 0.3), len = uni(r, 0.15, 0.45), ang = uni(r, -0.5, 0.2);
+      ctx.lineWidth = uni(r, 0.012, 0.028);
+      ctx.beginPath(); ctx.moveTo(x0, y0);
+      ctx.quadraticCurveTo(x0 + len / 2, y0 + uni(r, -0.05, 0.05), x0 + len * Math.cos(ang), y0 + len * Math.sin(ang));
+      ctx.stroke();
+    }
+    ctx.restore();
+    ctx.restore();
+  }
+
+  // ---------- Carta ----------
+  const VALOR_NOME = { A: 'Ás', '2': 'Dois', '3': 'Três', '4': 'Quatro', '5': 'Cinco', '6': 'Seis', '7': 'Sete', '8': 'Oito', '9': 'Nove', '10': 'Dez', J: 'Valete', Q: 'Dama', K: 'Rei' };
+  const NAIPE_NOME = { H: 'Copas', S: 'Espadas', D: 'Ouros', C: 'Paus' };
+  function cardName(v, s) { return VALOR_NOME[v] + ' de ' + NAIPE_NOME[s]; }
+  function drawCard(ctx, v, s, r) {
+    const Ht = H * 0.72;
+    const L = layoutText(ctx, v, W, Ht);
+    const m = measure(ctx, v, L.F);
+    const textW = m.w + L.spacing * ([...v].length - 1);
+    const suitH = Ht * 0.86, suitW = suitH * 1.12;
+    const gap = W * 0.05;
+    let total = textW + gap + suitW, scale = 1;
+    if (total > W * 0.88) scale = W * 0.88 / total;
+    const x0 = W / 2 - total * scale / 2;
+    const box = { x: x0 + textW * scale / 2, y: H / 2, w: textW * scale + 2, h: Ht * scale };
+    drawText(ctx, v, r, box);
+    drawSuit(ctx, s, x0 + (textW + gap + suitW / 2) * scale, H / 2 + 4, suitH * scale, r);
+    return { x: W / 2, y: H / 2, rad: total * scale / 2 + 30 };
+  }
+
+  // ---------- Traço livre (escrita manual) ----------
+  function drawStrokes(ctx, strokes, r) {
+    let minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
+    strokes.forEach(st => st.forEach(p => { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); }));
+    if (!(maxX >= minX)) return null;
+    const bw = Math.max(maxX - minX, 1), bh = Math.max(maxY - minY, 1);
+    const sc = Math.min(W * 0.88 / bw, H * 0.8 / bh);
+    const ox = W / 2 - (minX + bw / 2) * sc, oy = H / 2 - (minY + bh / 2) * sc;
+    const lw = 15;
+    strokes.forEach(st => {
+      if (st.length === 1) { dot(ctx, (st[0].x * sc + ox) * S, (st[0].y * sc + oy) * S, lw / 2 * S); return; }
+      for (let i = 1; i < st.length; i++) {
+        const a = st[i - 1], b = st[i];
+        const x1 = (a.x * sc + ox), y1 = (a.y * sc + oy), x2 = (b.x * sc + ox), y2 = (b.y * sc + oy);
+        const n = Math.max(1, Math.ceil(Math.hypot(x2 - x1, y2 - y1) / 2));
+        for (let j = 0; j <= n; j++) {
+          const t = j / n;
+          dot(ctx, (x1 + (x2 - x1) * t) * S, (y1 + (y2 - y1) * t) * S, lw / 2 * S * (0.92 + 0.16 * r()));
+        }
+      }
+    });
+    return { x: W / 2, y: H / 2, rad: Math.max(bw * sc, bh * sc) / 2 + 30 };
+  }
+
+  // ---------- Giz: grão, pó e conversão para bits ----------
+  function chalkify(mask, r, opts, focus) {
+    const small = makeCanvas(W, H);
+    const sctx = small.getContext('2d');
+    sctx.imageSmoothingEnabled = true;
+    if ('imageSmoothingQuality' in sctx) sctx.imageSmoothingQuality = 'high';
+    sctx.drawImage(mask, 0, 0, W, H);
+    const src = sctx.getImageData(0, 0, W, H).data;
+    const a = new Float32Array(W * H);
+    for (let i = 0; i < W * H; i++) a[i] = src[i * 4] / 255;
+    // desfoque leve (bordas do giz)
+    const b = new Float32Array(W * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      let s = 0, c = 0;
+      for (let dy = -1; dy <= 1; dy++) { const yy = y + dy; if (yy < 0 || yy >= H) continue;
+        for (let dx = -1; dx <= 1; dx++) { const xx = x + dx; if (xx < 0 || xx >= W) continue;
+          const wgt = (dx === 0 ? 2 : 1) * (dy === 0 ? 2 : 1); s += a[yy * W + xx] * wgt; c += wgt; } }
+      b[y * W + x] = a[y * W + x] * 0.55 + (s / c) * 0.45;
+    }
+    const gw = (W >> 1) + 1, gh = (H >> 1) + 1;
+    const g = new Float32Array(gw * gh); for (let i = 0; i < g.length; i++) g[i] = r();
+    const px = new Uint8Array(W * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      const p = Math.min(1, Math.max(0, (b[i] - 0.3) / 0.5)) * 0.74;
+      const grain = g[(y >> 1) * gw + (x >> 1)] * 0.8 + r() * 0.2;
+      if (grain < p) px[i] = 1;
+    }
+    if (opts.dust) {
+      const f = focus || { x: W / 2, y: H / 2, rad: 245 };
+      const n = 45 + Math.floor(r() * 16);
+      for (let k = 0; k < n; k++) {
+        let x0, y0;
+        if (r() < 0.6) { const ang = r() * 6.283, rr = r() * f.rad; x0 = f.x + rr * Math.cos(ang); y0 = f.y + rr * Math.sin(ang); }
+        else { x0 = r() * W; y0 = r() * H; }
+        const sx = uni(r, 4, 14), cnt = 4 + Math.floor(r() * 19);
+        for (let j = 0; j < cnt; j++) {
+          const x = Math.floor(x0 + gauss(r) * sx), y = Math.floor(y0 + gauss(r) * sx * 0.7);
+          if (x >= 0 && x < W && y >= 0 && y < H) { px[y * W + x] = 1; if (r() < 0.3 && x + 1 < W) px[y * W + x + 1] = 1; }
+        }
+      }
+    }
+    return px;
+  }
+  // bits como o app oficial faz: linha a linha, 8 pontos por byte, 1º ponto no bit mais alto, branco = 1
+  function packBits(px, rotate180) {
+    const out = new Uint8Array(W * H / 8);
+    for (let i = 0; i < W * H; i++) {
+      const v = rotate180 ? px[W * H - 1 - i] : px[i];
+      if (v) out[i >> 3] |= 0x80 >> (i & 7);
+    }
+    return out;
+  }
+  function render(kind, data, opts) {
+    const r = rng((opts.seed != null ? opts.seed : (Date.now() ^ (Math.random() * 1e9))) >>> 0);
+    const { c, ctx } = newMask();
+    let focus = null;
+    if (kind === 'clock') focus = drawClock(ctx, data.h, data.m, r, opts.numerals);
+    else if (kind === 'text') focus = drawText(ctx, data.text, r);
+    else if (kind === 'card') focus = data.full ? drawText(ctx, cardName(data.v, data.s), r) : drawCard(ctx, data.v, data.s, r);
+    else if (kind === 'strokes') focus = drawStrokes(ctx, data.strokes, r);
+    const px = chalkify(c, r, opts, focus);
+    return { px, bytes: packBits(px, !!opts.rotate180) };
+  }
+  function drawPreview(canvas, px) {
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    const img = ctx.createImageData(W, H);
+    for (let i = 0; i < W * H; i++) {
+      const v = px[i] ? 236 : 14;
+      img.data[i * 4] = v; img.data[i * 4 + 1] = v; img.data[i * 4 + 2] = px[i] ? 228 : 16; img.data[i * 4 + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+
+  // ---------- Dias vividos (só datas de calendário) ----------
+  function daysLived(dd, mm, aa, now) {
+    now = now || new Date();
+    const yy = (aa > now.getFullYear() % 100 ? 1900 : 2000) + aa;
+    const t = Date.UTC(yy, mm - 1, dd);
+    const c = new Date(t);
+    if (c.getUTCFullYear() !== yy || c.getUTCMonth() !== mm - 1 || c.getUTCDate() !== dd) return null;
+    const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    const n = Math.round((today - t) / 86400000);
+    return n < 0 ? null : n;
+  }
+
+  const api = { W, H, render, drawPreview, daysLived, cardName, rng };
+  if (typeof module !== 'undefined') module.exports = api; else root.Lousa = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+// ===== Conexão Bluetooth com a lousa (Inversion Board) =====
+// Serviço FEF0 (ou FDF0/FCF0/FBF0): FxF1 = comandos (escreve e avisa), FxF2 = dados da imagem.
+(function (root) {
+  const SERVICES = [0xfef0, 0xfdf0, 0xfcf0, 0xfbf0];
+
+  function Board(log) {
+    this.log = log || function () {};
+    this.device = null; this.ctrl = null; this.data = null;
+    this.waiters = []; this.onBlockRequest = null; this.onDisconnect = null;
+    this.swBit80 = true;   // a lousa NEMR anuncia versão 0x81 (bit 0x80 ligado)
+    this.busy = false;
+  }
+  Board.prototype.connected = function () { return !!(this.device && this.device.gatt && this.device.gatt.connected && this.ctrl); };
+
+  Board.prototype.pick = async function () {
+    const filters = SERVICES.map(s => ({ services: [s] }));
+    filters.push({ namePrefix: 'NEMR' });
+    this.device = await navigator.bluetooth.requestDevice({ filters, optionalServices: SERVICES });
+    this.log('Escolhida: ' + (this.device.name || '(sem nome)'));
+    this.device.addEventListener('gattserverdisconnected', () => {
+      this.log('Lousa desconectou'); this.ctrl = null; this.data = null;
+      if (this.onDisconnect) this.onDisconnect();
+    });
+    await this.attach();
+  };
+
+  Board.prototype.attach = async function () {
+    const server = await this.device.gatt.connect();
+    let svc = null, base = 0;
+    for (const s of SERVICES) {
+      try { svc = await server.getPrimaryService(s); base = s; break; } catch (e) { /* tenta o próximo */ }
+    }
+    if (!svc) throw new Error('Serviço da lousa não encontrado');
+    this.ctrl = await svc.getCharacteristic(base + 1);
+    this.data = await svc.getCharacteristic(base + 2);
+    await this.ctrl.startNotifications();
+    this.ctrl.addEventListener('characteristicvaluechanged', (ev) => this.onNotify(new Uint8Array(ev.target.value.buffer.slice(ev.target.value.byteOffset, ev.target.value.byteOffset + ev.target.value.byteLength))));
+    this.log('Conectada (serviço ' + base.toString(16).toUpperCase() + ')');
+  };
+
+  Board.prototype.reconnect = async function () {
+    if (!this.device) throw new Error('Nenhuma lousa escolhida');
+    await this.attach();
+  };
+
+  Board.prototype.onNotify = function (v) {
+    const hex = Array.from(v).map(b => b.toString(16).padStart(2, '0')).join(' ');
+    if (v[0] !== 5 || v[1] !== 0) this.log('← ' + hex);
+    if (v[0] === 5 && this.onBlockRequest) { this.onBlockRequest(v); return; }
+    const i = this.waiters.findIndex(w => w.first === v[0]);
+    if (i >= 0) { const w = this.waiters.splice(i, 1)[0]; clearTimeout(w.t); w.resolve(v); }
+  };
+
+  Board.prototype.writeCtrl = async function (bytes) {
+    const buf = new Uint8Array(bytes);
+    this.log('→ ' + Array.from(buf).map(b => b.toString(16).padStart(2, '0')).join(' '));
+    const p = this.ctrl.properties || {};
+    if (p.write && this.ctrl.writeValueWithResponse) return this.ctrl.writeValueWithResponse(buf);
+    if (this.ctrl.writeValueWithoutResponse) return this.ctrl.writeValueWithoutResponse(buf);
+    return this.ctrl.writeValue(buf);
+  };
+
+  Board.prototype.writeData = async function (buf) {
+    const p = this.data.properties || {};
+    if (this.dataMode !== 'resp' && p.writeWithoutResponse && this.data.writeValueWithoutResponse) {
+      try { return await this.data.writeValueWithoutResponse(buf); }
+      catch (e) { this.log('Envio sem resposta falhou (' + e.message + '), tentando com resposta'); this.dataMode = 'resp'; }
+    }
+    if (this.data.writeValueWithResponse) return this.data.writeValueWithResponse(buf);
+    return this.data.writeValue(buf);
+  };
+
+  Board.prototype.request = function (bytes, first, ms) {
+    return new Promise((resolve, reject) => {
+      const w = { first, resolve, t: setTimeout(() => { this.waiters = this.waiters.filter(x => x !== w); reject(new Error('A lousa não respondeu ao comando ' + first)); }, ms || 5000) };
+      this.waiters.push(w);
+      this.writeCtrl(bytes).catch(e => { clearTimeout(w.t); this.waiters = this.waiters.filter(x => x !== w); reject(e); });
+    });
+  };
+
+  // envia a imagem já comprimida (formato da lousa). progress(0..1)
+  Board.prototype.sendCompressed = async function (comp, progress) {
+    if (!this.connected()) {
+      if (this.device) { this.log('Reconectando…'); await this.reconnect(); }
+      else throw new Error('Lousa não conectada');
+    }
+    this.busy = true;
+    try {
+      const r1 = await this.request([0x01], 0x01);
+      const blockSize = r1[1] | (r1[2] << 8);
+      this.log('Tamanho do bloco: ' + blockSize);
+      if (!(blockSize > 4)) throw new Error('Tamanho de bloco inválido: ' + blockSize);
+      const per = blockSize - 4, total = comp.length, blocks = Math.ceil(total / per);
+      const mode = this.swBit80 ? 1 : 0;
+      const r2 = await this.request([2, total & 255, (total >> 8) & 255, (total >> 16) & 255, (total >>> 24) & 255, mode, 0, 0], 0x02);
+      if (r2[1] !== 0) throw new Error('A lousa recusou a imagem (código ' + r2[1] + ')');
+      await new Promise((resolve, reject) => {
+        let timer = null, seq = 0, first = true;
+        const arm = () => { clearTimeout(timer); timer = setTimeout(() => { this.onBlockRequest = null; reject(new Error('A lousa parou de pedir dados')); }, 8000); };
+        const sendBlock = async (n) => {
+          const start = n * per, end = Math.min(start + per, total);
+          if (start >= total) return;
+          const buf = new Uint8Array(4 + end - start);
+          buf[0] = n & 255; buf[1] = (n >> 8) & 255; buf[2] = (n >> 16) & 255; buf[3] = (n >>> 24) & 255;
+          buf.set(comp.subarray(start, end), 4);
+          await this.writeData(buf);
+          if (progress) progress(Math.min(1, (n + 1) / blocks));
+        };
+        this.onBlockRequest = (v) => {
+          if (v[1] === 0) {
+            arm();
+            let n = v[2] | (v[3] << 8) | (v[4] << 16) | (v[5] << 24);
+            if (!this.swBit80) { n = first ? n : seq + 1; first = false; }
+            seq = n;
+            sendBlock(n).catch(e => { clearTimeout(timer); this.onBlockRequest = null; reject(e); });
+          } else if (v[1] === 8) {
+            clearTimeout(timer); this.onBlockRequest = null; resolve();
+          } else {
+            clearTimeout(timer); this.onBlockRequest = null; reject(new Error('A lousa recusou os dados (código ' + v[1] + ')'));
+          }
+        };
+        arm();
+        this.writeCtrl([0x03]).catch(e => { clearTimeout(timer); this.onBlockRequest = null; reject(e); });
+      });
+      this.log('Imagem enviada (' + total + ' bytes, ' + blocks + ' blocos)');
+    } finally {
+      this.busy = false; this.onBlockRequest = null;
+    }
+  };
+
+  const api = { Board, SERVICES };
+  if (typeof module !== 'undefined') module.exports = api; else root.LousaBLE = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+// ===== Lousa v1.0 — telas e envio =====
+(function () {
+  const $ = (s) => document.querySelector(s);
+  const $$ = (s) => Array.from(document.querySelectorAll(s));
+
+  // ---------- registro ----------
+  const logLines = [];
+  function log(t) {
+    const d = new Date();
+    const line = d.toTimeString().slice(0, 8) + ' ' + t;
+    logLines.push(line); if (logLines.length > 300) logLines.shift();
+    const el = $('#log'); if (el) { el.textContent = logLines.join('\n'); el.scrollTop = el.scrollHeight; }
+  }
+  window.addEventListener('error', (e) => log('ERRO: ' + e.message));
+
+  // ---------- opções (guardadas no iPhone) ----------
+  const DEF = { dust: true, numerals: false, rotate180: false, full: false };
+  let opt = Object.assign({}, DEF);
+  try { Object.assign(opt, JSON.parse(localStorage.getItem('lousa.opt') || '{}')); } catch (e) {}
+  function saveOpt() { try { localStorage.setItem('lousa.opt', JSON.stringify(opt)); } catch (e) {} }
+  function bindSw(id, key) { const el = $(id); el.checked = !!opt[key]; el.addEventListener('change', () => { opt[key] = el.checked; saveOpt(); }); }
+  bindSw('#optDust', 'dust'); bindSw('#optNum', 'numerals'); bindSw('#optRot', 'rotate180'); bindSw('#optFull', 'full');
+
+  // ---------- navegação ----------
+  function go(name) {
+    $$('.screen').forEach(s => s.classList.toggle('on', s.id === 's-' + name));
+    window.scrollTo(0, 0);
+    if (name === 'relogio') resetClock();
+    if (name === 'nascimento') resetDate();
+  }
+  $$('[data-go]').forEach(b => b.addEventListener('click', () => go(b.dataset.go)));
+
+  // ---------- avisos ----------
+  let toastT = null;
+  function toast(msg, bad) {
+    const t = $('#toast'); t.textContent = msg; t.className = 'on' + (bad ? ' bad' : '');
+    clearTimeout(toastT); toastT = setTimeout(() => t.className = '', bad ? 4000 : 2000);
+  }
+  function bar(p) { $('#bar i').style.width = (p == null ? 0 : Math.round(p * 100)) + '%'; }
+
+  // ---------- lousa ----------
+  const board = new LousaBLE.Board(log);
+  function setStatus(kind, text) {
+    const d = $('#dotBoard'); d.className = 'dot' + (kind ? ' ' + kind : '');
+    $('#txtBoard').textContent = text;
+    $('#optState').textContent = text;
+    $('#btnConn').textContent = board.connected() ? 'Desconectar' : 'Conectar';
+    if (board.device) $('#optName').textContent = board.device.name || 'Lousa';
+  }
+  board.onDisconnect = () => setStatus('bad', 'Lousa desconectada — toque para reconectar');
+  async function connect() {
+    if (!navigator.bluetooth) { toast('Este navegador não tem Bluetooth. Abra no Bluefy.', true); log('navigator.bluetooth ausente'); return false; }
+    try {
+      setStatus('busy', 'Conectando…');
+      if (board.device && !board.connected()) await board.reconnect(); else await board.pick();
+      setStatus('ok', 'Lousa conectada');
+      return true;
+    } catch (e) {
+      log('Falha ao conectar: ' + e.message);
+      setStatus('bad', 'Não conectou — toque para tentar');
+      if (!/cancel/i.test(e.message)) toast('Não conectou: ' + e.message, true);
+      return false;
+    }
+  }
+  $('#chipBoard').addEventListener('click', () => { if (!board.connected()) connect(); });
+  $('#btnConn').addEventListener('click', () => {
+    if (board.connected()) { try { board.device.gatt.disconnect(); } catch (e) {} setStatus('', 'Desconectada'); }
+    else connect();
+  });
+
+  // ---------- desenhar e enviar ----------
+  const pvs = $$('.pv');
+  let hasPreview = false;
+  function showPreview(px) {
+    pvs.forEach(c => Lousa.drawPreview(c, px));
+    if (!hasPreview) { $$('.board .empty').forEach(e => e.remove()); hasPreview = true; }
+  }
+  let fontsReady = null;
+  function waitFonts() {
+    if (!fontsReady) fontsReady = (document.fonts ? Promise.race([document.fonts.load('500 100px "Caveat"'), new Promise(r => setTimeout(r, 2500))]) : Promise.resolve()).catch(() => {});
+    return fontsReady;
+  }
+  waitFonts();
+  let pending = null, running = false;
+  async function send(kind, data, label) {
+    await waitFonts();
+    const t0 = performance.now();
+    const res = Lousa.render(kind, data, { dust: opt.dust, numerals: opt.numerals, rotate180: opt.rotate180 });
+    showPreview(res.px);
+    const comp = QLZ.boardCompress(res.bytes);
+    log('Desenho "' + label + '" pronto em ' + Math.round(performance.now() - t0) + ' ms (' + comp.length + ' bytes)');
+    pending = { comp, label };
+    if (!running) runQueue();
+  }
+  async function runQueue() {
+    running = true;
+    while (pending) {
+      const job = pending; pending = null;
+      if (!board.connected()) {
+        const ok = await connect();
+        if (!ok) { toast('Lousa não conectada — "' + job.label + '" não foi enviado', true); break; }
+      }
+      try {
+        setStatus('busy', 'Enviando…');
+        const t0 = performance.now();
+        try { await board.sendCompressed(job.comp, bar); }
+        catch (e1) {
+          // 2ª tentativa no modo "com resposta" (mais lento, porém mais seguro no iPhone)
+          if (board.dataMode === 'resp' || !board.connected()) throw e1;
+          log('Falhou (' + e1.message + '). Tentando de novo no modo seguro…');
+          board.dataMode = 'resp';
+          await board.sendCompressed(job.comp, bar);
+        }
+        bar(1); setTimeout(() => bar(null), 400);
+        setStatus('ok', 'Lousa conectada');
+        $('#lastTxt').textContent = 'Última enviada: ' + job.label;
+        log('Enviado em ' + ((performance.now() - t0) / 1000).toFixed(1) + ' s');
+      } catch (e) {
+        bar(null);
+        log('Falha no envio: ' + e.message);
+        setStatus(board.connected() ? 'bad' : 'bad', board.connected() ? 'Erro ao enviar' : 'Lousa desconectada — toque para reconectar');
+        toast('Não enviou: ' + e.message, true);
+      }
+    }
+    running = false;
+  }
+
+  // ---------- carta ----------
+  let suit = 'C';
+  $$('.suit').forEach(b => b.addEventListener('click', () => {
+    suit = b.dataset.s; $$('.suit').forEach(x => x.classList.toggle('sel', x === b));
+  }));
+  ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'].forEach(v => {
+    const b = document.createElement('button'); b.textContent = v;
+    b.addEventListener('click', () => {
+      const name = Lousa.cardName(v, suit);
+      $('#lastCard').textContent = 'Enviando: ' + name;
+      send('card', { v, s: suit, full: opt.full }, name).then(() => $('#lastCard').textContent = 'Última: ' + name);
+    });
+    $('#vals').appendChild(b);
+  });
+
+  // ---------- teclados numéricos ----------
+  function makePad(el, onKey, okLabel) {
+    ['1', '2', '3', '4', '5', '6', '7', '8', '9', '⌫', '0', okLabel || ''].forEach(k => {
+      const b = document.createElement('button'); b.textContent = k;
+      if (!k) b.style.visibility = 'hidden';
+      b.addEventListener('click', () => onKey(k));
+      el.appendChild(b);
+    });
+  }
+  function shake(el) { el.classList.remove('err'); void el.offsetWidth; el.classList.add('err'); setTimeout(() => el.classList.remove('err'), 600); }
+
+  // ---------- relógio: hora primeiro, depois minutos ----------
+  let hs = '', ms = '', stage = 'h';
+  function resetClock() { hs = ''; ms = ''; stage = 'h'; drawClockUI(); }
+  function drawClockUI() {
+    $('#hh').textContent = (hs + '--').slice(0, 2);
+    $('#mm').textContent = (ms + '--').slice(0, 2);
+    $('#hh').className = stage === 'h' ? 'act' : '';
+    $('#mm').className = stage === 'm' ? 'act' : '';
+    $('#hHint').textContent = stage === 'h' ? 'Digite a hora (1 h ou 2 h: digite e toque →)' : (ms.length < 2 ? 'Digite os minutos' : 'Confira e toque em Enviar');
+    $('#hSend').disabled = !(stage === 'm' && ms.length === 2);
+  }
+  function commitHour() {
+    const h = parseInt(hs, 10);
+    if (isNaN(h) || h > 23) { shake($('#hDisp')); hs = ''; drawClockUI(); return; }
+    hs = String(h).padStart(2, '0'); stage = 'm'; drawClockUI();
+  }
+  makePad($('#hPad'), (k) => {
+    if (k === '⌫') {
+      if (stage === 'm' && ms.length) ms = ms.slice(0, -1);
+      else if (stage === 'm') { stage = 'h'; hs = hs.slice(0, 1) === '0' ? '' : hs; hs = ''; }
+      else hs = hs.slice(0, -1);
+      drawClockUI(); return;
+    }
+    if (k === '→') { if (stage === 'h' && hs.length) commitHour(); return; }
+    if (stage === 'h') {
+      hs += k;
+      if (hs.length === 2 || (hs.length === 1 && k > '2')) commitHour(); else drawClockUI();
+    } else if (ms.length < 2) {
+      if (ms.length === 0 && k > '5') { shake($('#hDisp')); return; }
+      ms += k; drawClockUI();
+    }
+  }, '→');
+  $('#hSend').addEventListener('click', () => {
+    const h = parseInt(hs, 10), m = parseInt(ms, 10);
+    if (isNaN(h) || isNaN(m) || h > 23 || m > 59) { shake($('#hDisp')); return; }
+    send('clock', { h, m }, hs + ':' + ms);
+  });
+
+  // ---------- data de nascimento ----------
+  let ds = '';
+  function resetDate() { ds = ''; drawDateUI(); }
+  function dateResult() {
+    if (ds.length < 6) return undefined;
+    return Lousa.daysLived(+ds.slice(0, 2), +ds.slice(2, 4), +ds.slice(4, 6));
+  }
+  function drawDateUI() {
+    const p = (ds + '______').slice(0, 6);
+    $('#dDisp').textContent = p.slice(0, 2) + '/' + p.slice(2, 4) + '/' + p.slice(4, 6);
+    const r = dateResult();
+    $('#dDisp').style.color = r === null ? 'var(--bad)' : '';
+    $('#dHint').textContent = r === undefined ? 'Digite dia, mês e ano (2 dígitos)' : (r === null ? 'Data inválida' : r + ' dias vividos até hoje');
+    $('#dSend').disabled = !(typeof r === 'number');
+  }
+  makePad($('#dPad'), (k) => {
+    if (k === '⌫') ds = ds.slice(0, -1);
+    else if (k) { if (ds.length >= 6) ds = ''; ds += k; if (ds.length === 6 && dateResult() === null) shake($('#dDisp')); }
+    drawDateUI();
+  });
+  $('#dSend').addEventListener('click', () => {
+    const r = dateResult(); if (typeof r !== 'number') return;
+    send('text', { text: String(r) }, r + ' dias');
+  });
+
+  // ---------- escrita manual ----------
+  const pad = $('#pad'); const pctx = pad.getContext('2d');
+  let strokes = [], cur = null, dpr = 1, pattern = null;
+  function chalkPattern() {
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const x = c.getContext('2d'); const img = x.createImageData(64, 64);
+    for (let i = 0; i < 64 * 64; i++) { const on = Math.random() < 0.78; const v = on ? 236 : 20; img.data[i * 4] = v; img.data[i * 4 + 1] = v; img.data[i * 4 + 2] = on ? 228 : 22; img.data[i * 4 + 3] = 255; }
+    x.putImageData(img, 0, 0); return pctx.createPattern(c, 'repeat');
+  }
+  function sizePad() {
+    dpr = window.devicePixelRatio || 1;
+    pad.width = Math.round(window.innerWidth * dpr); pad.height = Math.round(window.innerHeight * dpr);
+    pattern = chalkPattern(); redrawPad();
+  }
+  function redrawPad() {
+    pctx.setTransform(1, 0, 0, 1, 0, 0);
+    pctx.fillStyle = '#0E0F11'; pctx.fillRect(0, 0, pad.width, pad.height);
+    pctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    pctx.strokeStyle = pattern; pctx.fillStyle = pattern;
+    pctx.lineWidth = 9; pctx.lineCap = 'round'; pctx.lineJoin = 'round';
+    strokes.forEach(st => {
+      if (st.length === 1) { pctx.beginPath(); pctx.arc(st[0].x, st[0].y, 4.5, 0, 7); pctx.fill(); return; }
+      pctx.beginPath(); pctx.moveTo(st[0].x, st[0].y);
+      for (let i = 1; i < st.length; i++) pctx.lineTo(st[i].x, st[i].y);
+      pctx.stroke();
+    });
+  }
+  pad.addEventListener('pointerdown', (e) => { e.preventDefault(); pad.setPointerCapture(e.pointerId); cur = [{ x: e.clientX, y: e.clientY }]; strokes.push(cur); redrawPad(); });
+  pad.addEventListener('pointermove', (e) => { if (!cur) return; e.preventDefault(); const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e]; evs.forEach(ev => cur.push({ x: ev.clientX, y: ev.clientY })); redrawPad(); });
+  const end = () => { cur = null; };
+  pad.addEventListener('pointerup', end); pad.addEventListener('pointercancel', end);
+  $('#goEscrita').addEventListener('click', () => { $('#escrita').classList.add('on'); sizePad(); });
+  $('#eBack').addEventListener('click', () => { $('#escrita').classList.remove('on'); });
+  $('#eUndo').addEventListener('click', () => { strokes.pop(); redrawPad(); });
+  $('#eClear').addEventListener('click', () => { strokes = []; redrawPad(); });
+  $('#eSend').addEventListener('click', () => {
+    if (!strokes.length) { toast('Escreva algo primeiro'); return; }
+    send('strokes', { strokes: strokes.map(s => s.slice()) }, 'escrita manual');
+    toast('Enviando para a lousa…');
+  });
+  window.addEventListener('resize', () => { if ($('#escrita').classList.contains('on')) sizePad(); });
+
+  // ---------- opções: teste e registro ----------
+  $('#btnTest').addEventListener('click', () => send('clock', { h: 10, m: 10 }, 'teste 10:10'));
+  $('#btnCopy').addEventListener('click', async () => {
+    const txt = logLines.join('\n') || '(vazio)';
+    try { await navigator.clipboard.writeText(txt); toast('Registro copiado'); }
+    catch (e) { const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); toast('Registro copiado'); }
+  });
+
+  setStatus('', navigator.bluetooth ? 'Conectar lousa' : 'Abra no Bluefy para conectar');
+  log('Lousa v1.0 iniciada · Bluetooth: ' + (navigator.bluetooth ? 'sim' : 'não'));
+  drawClockUI(); drawDateUI();
+})();
+
+</script>
+</body>
+</html>
