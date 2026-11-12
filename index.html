@@ -89,7 +89,7 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
     <button class="tile" data-go="nascimento"><div class="ico" style="font-family:Caveat,cursive">19889</div><b>Data de Nascimento</b><span>dias vividos até hoje</span></button>
     <button class="tile" id="goEscrita"><div class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round"><path d="M4 20l4-1 11-11-3-3L5 16z"/></svg></div><b>Escrita manual</b><span>seu traço em giz</span></button>
   </div>
-  <div class="small" style="margin-top:auto">v1.0.1 · use no Bluefy</div>
+  <div class="small" style="margin-top:auto">v1.0.2 · use no Bluefy</div>
 </section>
 
 <!-- CARTA -->
@@ -802,7 +802,7 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
 
   Board.prototype.onNotify = function (v) {
     const hex = Array.from(v).map(b => b.toString(16).padStart(2, '0')).join(' ');
-    if (v[0] !== 5 || v[1] !== 0) this.log('← ' + hex);
+    if ((v[0] !== 5 || v[1] !== 0) && !(v[0] === 5 && !this.onBlockRequest)) this.log('← ' + hex);
     if (v[0] === 5 && this.onBlockRequest) { this.onBlockRequest(v); return; }
     const i = this.waiters.findIndex(w => w.first === v[0]);
     if (i >= 0) { const w = this.waiters.splice(i, 1)[0]; clearTimeout(w.t); w.resolve(v); }
@@ -852,32 +852,58 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
       const r2 = await this.request([2, total & 255, (total >> 8) & 255, (total >> 16) & 255, (total >>> 24) & 255, mode, 0, 0], 0x02);
       if (r2[1] !== 0) throw new Error('A lousa recusou a imagem (código ' + r2[1] + ')');
       await new Promise((resolve, reject) => {
-        let timer = null, seq = 0, first = true;
-        const arm = () => { clearTimeout(timer); timer = setTimeout(() => { this.onBlockRequest = null; reject(new Error('A lousa parou de pedir dados')); }, 8000); };
+        let timer = null, done = false, next = 0, streaming = false, seq = 0, firstReq = true, sent = 0, rewinds = 0;
+        const fail = (e) => { if (done) return; done = true; clearTimeout(timer); this.onBlockRequest = null; reject(e); };
+        const ok = () => { if (done) return; done = true; clearTimeout(timer); this.onBlockRequest = null; resolve(); };
+        const arm = () => { clearTimeout(timer); timer = setTimeout(() => fail(new Error('A lousa parou de pedir dados (enviados ' + sent + ' de ' + blocks + ' blocos)')), 8000); };
         const sendBlock = async (n) => {
           const start = n * per, end = Math.min(start + per, total);
           if (start >= total) return;
           const buf = new Uint8Array(4 + end - start);
           buf[0] = n & 255; buf[1] = (n >> 8) & 255; buf[2] = (n >> 16) & 255; buf[3] = (n >>> 24) & 255;
           buf.set(comp.subarray(start, end), 4);
-          await this.writeData(buf);
+          const p = (this._wq || Promise.resolve()).then(() => done ? null : this.writeData(buf));
+          this._wq = p.catch(() => {});
+          await p;
+          sent = Math.max(sent, n + 1);
           if (progress) progress(Math.min(1, (n + 1) / blocks));
         };
+        // lousas com versão 0x80: depois do 1º pedido, o app manda os blocos em sequência,
+        // um logo após o outro (igual ao app oficial). Se a lousa pedir de novo um bloco, volta para ele.
+        const stream = async () => {
+          if (streaming) return; streaming = true;
+          try {
+            while (!done && next < blocks) {
+              const n = next++;
+              await sendBlock(n);
+              arm();
+            }
+            if (!done) this.log('Todos os ' + blocks + ' blocos enviados, aguardando confirmação');
+          } catch (e) { fail(e); }
+          streaming = false;
+        };
         this.onBlockRequest = (v) => {
+          if (done) return;
           if (v[1] === 0) {
             arm();
-            let n = v[2] | (v[3] << 8) | (v[4] << 16) | (v[5] << 24);
-            if (!this.swBit80) { n = first ? n : seq + 1; first = false; }
-            seq = n;
-            sendBlock(n).catch(e => { clearTimeout(timer); this.onBlockRequest = null; reject(e); });
+            const n = v[2] | (v[3] << 8) | (v[4] << 16) | (v[5] << 24);
+            if (this.swBit80) {
+              if (firstReq) { this.log('Lousa pediu o bloco ' + n + ' — enviando em sequência'); firstReq = false; }
+              else if (n < next - 1) { rewinds++; if (rewinds <= 5) this.log('Lousa pediu de novo o bloco ' + n); }
+              if (n >= next) { next = n; stream(); }      // ainda não enviado: segue a sequência a partir dele
+              else sendBlock(n).catch(fail);              // já enviado: manda só esse de novo (como o app oficial)
+            } else {
+              const k = firstReq ? n : seq + 1; firstReq = false; seq = k;
+              sendBlock(k).catch(fail);
+            }
           } else if (v[1] === 8) {
-            clearTimeout(timer); this.onBlockRequest = null; resolve();
+            ok();
           } else {
-            clearTimeout(timer); this.onBlockRequest = null; reject(new Error('A lousa recusou os dados (código ' + v[1] + ')'));
+            fail(new Error('A lousa recusou os dados (código ' + v[1] + ')'));
           }
         };
         arm();
-        this.writeCtrl([0x03]).catch(e => { clearTimeout(timer); this.onBlockRequest = null; reject(e); });
+        this.writeCtrl([0x03]).catch(fail);
       });
       this.log('Imagem enviada (' + total + ' bytes, ' + blocks + ' blocos)');
     } finally {
@@ -1158,7 +1184,7 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
   });
 
   setStatus('', navigator.bluetooth ? 'Conectar lousa' : 'Abra no Bluefy para conectar');
-  log('Lousa v1.0.1 iniciada · Bluetooth: ' + (navigator.bluetooth ? 'sim' : 'não'));
+  log('Lousa v1.0.2 iniciada · Bluetooth: ' + (navigator.bluetooth ? 'sim' : 'não'));
   drawClockUI(); drawDateUI();
 })();
 
