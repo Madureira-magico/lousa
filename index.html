@@ -132,7 +132,7 @@ body.soicones #s-inicio .grid2 .tile.wide .ico{transform:scale(1.5)}
     <button class="tile" data-go="quadrado"><div class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg></div><b>Quadrado mágico</b></button>
     <button class="tile wide" id="btnClear"><div class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round"><path d="M3 17l8-8 6 6-4 4H7z"/><path d="M11 9l4-4 6 6-4 4"/><path d="M3 21h18"/></svg></div><b>Limpar lousa</b></button>
   </div>
-  <div class="small" style="margin-top:auto">v1.0.9 · use no Bluefy</div>
+  <div class="small" style="margin-top:auto">v1.0.10 · use no Bluefy</div>
 </section>
 
 <!-- CARTA -->
@@ -1105,6 +1105,41 @@ body.soicones #s-inicio .grid2 .tile.wide .ico{transform:scale(1.5)}
     });
   };
 
+  // "escuta" o sinal da lousa antes de conectar — renova a lousa lembrada depois que o app foi fechado
+  // (mesmo método do app do relógio, que reconecta sozinho no Bluefy)
+  Board.prototype.listen = function (ms) {
+    const d = this.device;
+    if (!d || typeof d.watchAdvertisements !== 'function') return Promise.resolve(false);
+    return new Promise(resolve => {
+      let done = false;
+      const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const finish = (ok) => {
+        if (done) return; done = true;
+        try { d.removeEventListener('advertisementreceived', onAdv); } catch (e) {}
+        try { if (ctrl) ctrl.abort(); } catch (e) {}
+        try { if (typeof d.unwatchAdvertisements === 'function') d.unwatchAdvertisements(); } catch (e) {}
+        resolve(ok);
+      };
+      const onAdv = () => finish(true);
+      try { d.addEventListener('advertisementreceived', onAdv); } catch (e) {}
+      try {
+        const p = ctrl ? d.watchAdvertisements({ signal: ctrl.signal }) : d.watchAdvertisements();
+        if (p && p.catch) p.catch(() => finish(false));
+      } catch (e) { finish(false); return; }
+      setTimeout(() => finish(false), ms);
+    });
+  };
+  // pega de novo a lousa lembrada (objeto novo)
+  Board.prototype.refresh = async function () {
+    if (!navigator.bluetooth || !navigator.bluetooth.getDevices) return false;
+    try {
+      const devs = await this.withTimeout(navigator.bluetooth.getDevices(), 2500);
+      const dev = devs.find(d => /NEMR|PICK/i.test(d.name || '')) || devs[0];
+      if (dev && dev !== this.device) { this.setDevice(dev); return true; }
+    } catch (e) {}
+    return false;
+  };
+
   // ao abrir o app: tenta voltar à lousa já autorizada, sem abrir a lista
   Board.prototype.restore = async function () {
     if (!navigator.bluetooth || !navigator.bluetooth.getDevices) { this.log('Reconexão automática ao abrir: não suportada neste navegador'); return false; }
@@ -1114,6 +1149,9 @@ body.soicones #s-inicio .grid2 .tile.wide .ico{transform:scale(1.5)}
     const dev = devs.find(d => /NEMR|PICK/i.test(d.name || '')) || devs[0];
     this.log('Lousa lembrada: ' + (dev.name || '(sem nome)'));
     this.setDevice(dev);
+    const t = Date.now();
+    const heard = await this.listen(8000);
+    this.log(heard ? 'Ouvi a lousa em ' + ((Date.now() - t) / 1000).toFixed(1) + ' s' : (typeof dev.watchAdvertisements === 'function' ? 'Não ouvi a lousa em 8 s' : 'Bluefy sem "escutar sinal"'));
     await this.withTimeout(this.attach(), 15000);
     return true;
   };
@@ -1390,7 +1428,10 @@ body.soicones #s-inicio .grid2 .tile.wide .ico{transform:scale(1.5)}
             if (board.connected()) return true;              // conectou pela lista enquanto esperava
             log('Tentativa ' + n + ' sem resposta (' + ((Date.now() - t0) / 1000).toFixed(0) + ' s): ' + LousaBLE.errStr(e));
             if (document.visibilityState !== 'visible') { setStatus('bad', 'Toque para reconectar'); return false; }   // volta a procurar quando o app voltar à tela
-            await sleep(n < 5 ? 800 : 3000);
+            await sleep(500);
+            await board.refresh();                         // lembrança nova da lousa
+            const heard = await board.listen(n < 5 ? 6000 : 12000);   // espera o sinal dela antes de tentar de novo
+            if (heard) log('Ouvi a lousa — conectando');
           }
         }
         if (board.connected()) { if (gen === connGen) afterConnect(first); return true; }
@@ -1910,7 +1951,7 @@ body.soicones #s-inicio .grid2 .tile.wide .ico{transform:scale(1.5)}
   });
 
   setStatus('', navigator.bluetooth ? 'Conectar lousa' : 'Abra no Bluefy para conectar');
-  log('Lousa v1.0.9 iniciada · letra ' + (Lousa.hasHand() ? 'sua' : 'padrão') + ' · Bluetooth: ' + (navigator.bluetooth ? 'sim' : 'não'));
+  log('Lousa v1.0.10 iniciada · letra ' + (Lousa.hasHand() ? 'sua' : 'padrão') + ' · Bluetooth: ' + (navigator.bluetooth ? 'sim' : 'não'));
   drawClockUI(); drawDateUI(); drawCardUI();
   // ao abrir: volta sozinho para a lousa já usada (se o Bluefy permitir)
   if (navigator.bluetooth) {
