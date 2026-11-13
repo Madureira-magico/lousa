@@ -132,7 +132,7 @@ body.soicones #s-inicio .grid2 .tile.wide .ico{transform:scale(1.5)}
     <button class="tile" data-go="quadrado"><div class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg></div><b>Quadrado mágico</b></button>
     <button class="tile wide" id="btnClear"><div class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round"><path d="M3 17l8-8 6 6-4 4H7z"/><path d="M11 9l4-4 6 6-4 4"/><path d="M3 21h18"/></svg></div><b>Limpar lousa</b></button>
   </div>
-  <div class="small" style="margin-top:auto">v1.0.7 · use no Bluefy</div>
+  <div class="small" style="margin-top:auto">v1.0.8 · use no Bluefy</div>
 </section>
 
 <!-- CARTA -->
@@ -1069,7 +1069,7 @@ body.soicones #s-inicio .grid2 .tile.wide .ico{transform:scale(1.5)}
     this.busy = false;
     this.dataMode = 'resp';  // modo seguro (com resposta): no iPhone o modo rápido perde dados
   }
-  Board.prototype.connected = function () { return !!(this.device && this.device.gatt && this.device.gatt.connected && this.ctrl); };
+  Board.prototype.connected = function () { return !!(this.device && this.device.gatt && this.device.gatt.connected && this.ctrl && this.data); };
 
   Board.prototype.pick = async function () {
     const tries = [
@@ -1114,7 +1114,7 @@ body.soicones #s-inicio .grid2 .tile.wide .ico{transform:scale(1.5)}
     const dev = devs.find(d => /NEMR|PICK/i.test(d.name || '')) || devs[0];
     this.log('Lousa lembrada: ' + (dev.name || '(sem nome)'));
     this.setDevice(dev);
-    await this.withTimeout(this.attach(), 8000);
+    await this.withTimeout(this.attach(), 15000);
     return true;
   };
 
@@ -1132,14 +1132,17 @@ body.soicones #s-inicio .grid2 .tile.wide .ico{transform:scale(1.5)}
     this.ctrl = await svc.getCharacteristic(U(base + 1));
     this.data = await svc.getCharacteristic(U(base + 2));
     await this.ctrl.startNotifications();
-    this.ctrl.addEventListener('characteristicvaluechanged', (ev) => this.onNotify(new Uint8Array(ev.target.value.buffer.slice(ev.target.value.byteOffset, ev.target.value.byteOffset + ev.target.value.byteLength))));
+    // mesma função sempre: se conectar duas vezes, o aviso não fica duplicado
+    this._nh = this._nh || ((ev) => this.onNotify(new Uint8Array(ev.target.value.buffer.slice(ev.target.value.byteOffset, ev.target.value.byteOffset + ev.target.value.byteLength))));
+    this.ctrl.addEventListener('characteristicvaluechanged', this._nh);
     this.justConnected = Date.now();
     this.log('Conectada (serviço ' + base.toString(16).toUpperCase() + ')');
   };
 
-  Board.prototype.reconnect = async function () {
+  // ms = quanto esperar a lousa responder (dormindo ela demora: esperamos bastante, como o app nativo)
+  Board.prototype.reconnect = async function (ms) {
     if (!this.device) throw new Error('Nenhuma lousa escolhida');
-    await this.withTimeout(this.attach(), 8000);
+    await this.withTimeout(this.attach(), ms || 8000);
     this.justConnected = Date.now();
   };
 
@@ -1152,6 +1155,7 @@ body.soicones #s-inicio .grid2 .tile.wide .ico{transform:scale(1.5)}
   };
 
   Board.prototype.writeCtrl = async function (bytes) {
+    if (!this.ctrl || !this.data) throw new Error('A lousa desconectou no meio');
     const buf = new Uint8Array(bytes);
     this.log('→ ' + Array.from(buf).map(b => b.toString(16).padStart(2, '0')).join(' '));
     const p = this.ctrl.properties || {};
@@ -1161,6 +1165,7 @@ body.soicones #s-inicio .grid2 .tile.wide .ico{transform:scale(1.5)}
   };
 
   Board.prototype.writeData = async function (buf) {
+    if (!this.ctrl || !this.data) throw new Error('A lousa desconectou no meio');
     const p = this.data.properties || {};
     if (this.dataMode !== 'resp' && p.writeWithoutResponse && this.data.writeValueWithoutResponse) {
       try { return await this.data.writeValueWithoutResponse(buf); }
@@ -1345,7 +1350,7 @@ body.soicones #s-inicio .grid2 .tile.wide .ico{transform:scale(1.5)}
     $('#btnConn').textContent = board.connected() ? 'Desconectar' : 'Conectar';
     if (board.device) $('#optName').textContent = board.device.name || 'Lousa';
   }
-  let manualOff = false, connP = null, needPick = false, reconnT = null;
+  let manualOff = false, connP = null, needPick = false, reconnT = null, searchStart = 0;
   // "primeira conexão": vale por apresentação (o Bluefy recarrega a página ao bloquear o iPhone,
   // então só conta como nova se a lousa ficou mais de 15 min sem uso)
   function markUse() { try { localStorage.setItem('lousa.lastUse', String(Date.now())); } catch (e) {} }
@@ -1372,13 +1377,23 @@ body.soicones #s-inicio .grid2 .tile.wide .ico{transform:scale(1.5)}
           await board.pick(); needPick = false;
           afterConnect(first); return true;
         }
-        setStatus('busy', 'Reconectando…');
-        for (let i = 1; i <= 3; i++) {
-          try { await board.reconnect(); afterConnect(first); return true; }
-          catch (e) { log('Reconexão ' + i + '/3 falhou: ' + LousaBLE.errStr(e)); if (i < 3) await sleep(1200 * i); }
+        // lousa dormindo demora a responder: fica esperando e tentando sozinho, sem desistir (como o MysterSmith)
+        setStatus('busy', 'Procurando a lousa…');
+        const t0 = Date.now(); searchStart = t0; let n = 0;
+        while (!manualOff && !board.connected()) {
+          n++;
+          try {
+            await board.reconnect(60000);
+            log('Conectou em ' + ((Date.now() - t0) / 1000).toFixed(1) + ' s (' + n + (n > 1 ? ' tentativas)' : ' tentativa)'));
+            afterConnect(first); return true;
+          } catch (e) {
+            log('Tentativa ' + n + ' sem resposta (' + ((Date.now() - t0) / 1000).toFixed(0) + ' s): ' + LousaBLE.errStr(e));
+            if (document.visibilityState !== 'visible') { setStatus('bad', 'Toque para reconectar'); return false; }   // volta a procurar quando o app voltar à tela
+            await sleep(n < 5 ? 800 : 3000);
+          }
         }
-        needPick = true;
-        setStatus('bad', 'Toque para reconectar');
+        if (board.connected()) { afterConnect(first); return true; }
+        setStatus('', 'Conectar lousa');
         return false;
       } catch (e) {
         log('Falha ao conectar: ' + LousaBLE.errStr(e));
@@ -1400,7 +1415,17 @@ body.soicones #s-inicio .grid2 .tile.wide .ico{transform:scale(1.5)}
     if (manualOff) { setStatus('', 'Conectar lousa'); return; }
     if (!running) autoReconnect();
   };
-  $('#chipBoard').addEventListener('click', () => { if (!board.connected()) { manualOff = false; ensure(true); } });
+  $('#chipBoard').addEventListener('click', () => {
+    if (board.connected()) return;
+    manualOff = false;
+    if (connP && Date.now() - searchStart > 20000) {       // procurando há muito tempo: deixa escolher a lousa na lista
+      log('Procurando há ' + Math.round((Date.now() - searchStart) / 1000) + ' s — abrindo a lista');
+      board.pick().then(() => afterConnect(isFirstConnection())).catch(e => log('Lista: ' + LousaBLE.errStr(e)));
+      return;
+    }
+    if (connP) { toast('Procurando a lousa… deixe ela perto do iPhone'); return; }
+    ensure(true);
+  });
   $('#btnConn').addEventListener('click', () => {
     if (board.connected()) { manualOff = true; try { board.device.gatt.disconnect(); } catch (e) {} setStatus('', 'Conectar lousa'); }
     else { manualOff = false; ensure(true); }
@@ -1481,6 +1506,7 @@ body.soicones #s-inicio .grid2 .tile.wide .ico{transform:scale(1.5)}
         if (pending) break;                       // chegou um pedido mais novo: manda o novo
         try {
           if (!board.connected()) {
+            bar(0, null, 'Esperando a lousa acordar…');
             const ok = await ensure(false);
             if (!ok) throw new Error('Lousa não conectada');
           }
@@ -1876,7 +1902,7 @@ body.soicones #s-inicio .grid2 .tile.wide .ico{transform:scale(1.5)}
   });
 
   setStatus('', navigator.bluetooth ? 'Conectar lousa' : 'Abra no Bluefy para conectar');
-  log('Lousa v1.0.7 iniciada · letra ' + (Lousa.hasHand() ? 'sua' : 'padrão') + ' · Bluetooth: ' + (navigator.bluetooth ? 'sim' : 'não'));
+  log('Lousa v1.0.8 iniciada · letra ' + (Lousa.hasHand() ? 'sua' : 'padrão') + ' · Bluetooth: ' + (navigator.bluetooth ? 'sim' : 'não'));
   drawClockUI(); drawDateUI(); drawCardUI();
   // ao abrir: volta sozinho para a lousa já usada (se o Bluefy permitir)
   if (navigator.bluetooth) {
@@ -1885,7 +1911,10 @@ body.soicones #s-inicio .grid2 .tile.wide .ico{transform:scale(1.5)}
     board.restore().then(ok => {
       if (ok && board.connected()) afterConnect(first);
       else setStatus('', 'Conectar lousa');
-    }).catch(e => { log('Reconexão ao abrir falhou: ' + LousaBLE.errStr(e)); setStatus(board.device ? 'bad' : '', board.device ? 'Toque para reconectar' : 'Conectar lousa'); });
+    }).catch(e => {
+      log('Lousa não respondeu ao abrir: ' + LousaBLE.errStr(e));
+      if (board.device) ensure(false); else setStatus('', 'Conectar lousa');
+    });
   }
 })();
 
