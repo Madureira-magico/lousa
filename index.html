@@ -93,6 +93,25 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
 #escrita .send{height:44px;padding:0 18px;border-radius:12px;background:var(--accent)!important;color:#fff;font-weight:700}
 #rotate{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px;color:var(--muted);font-size:16px;text-align:center;padding:30px;pointer-events:none}
 @media (orientation:portrait){#rotate{display:flex}#frame{display:none}}
+/* v1.0.7: telas compactas (Enviar sem rolar) */
+.screen{gap:10px}
+.vals button,.pad button{height:46px}
+.pad{gap:8px}.vals{gap:7px}.suits{gap:8px}.suit{height:50px;font-size:30px}
+.display{font-size:42px}
+.big{height:52px}
+.tile{min-height:64px;padding:10px;gap:5px}
+.grid2{gap:8px!important}
+.tile.wide{min-height:50px}
+#s-inicio .board{max-height:none}
+#hHint,#dHint,#lastCard{display:none}
+body.soicones #s-inicio .grid2 .tile b{display:none}
+body.soicones #s-inicio .grid2 .tile .ico{transform:scale(1.8);height:40px}
+body.soicones #s-inicio .grid2 .tile.wide .ico{transform:scale(1.5)}
+.sec{background:var(--card);border-radius:14px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:16px;width:100%;text-align:left}
+.sec::after{content:'▸';color:var(--muted)}.sec.open::after{content:'▾'}
+.secbody{display:none}.secbody.open{display:block}
+.wordin{width:100%;height:52px;border-radius:14px;border:2px solid var(--accent);background:var(--card);color:var(--text);font-size:22px;padding:0 14px;font-family:inherit}
+.note{font-size:13px;color:var(--muted);padding:13px 16px}
 </style>
 </head>
 <body>
@@ -109,9 +128,11 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
     <button class="tile" data-go="relogio"><div class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><b>Relógio</b></button>
     <button class="tile" data-go="nascimento"><div class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M8 14h2M14 14h2M8 17.5h2"/></svg></div><b>Data de Nascimento</b></button>
     <button class="tile" id="goEscrita"><div class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round"><path d="M4 20l4-1 11-11-3-3L5 16z"/></svg></div><b>Escrita manual</b></button>
+    <button class="tile" data-go="palavra"><div class="ico"><svg width="30" height="26" viewBox="0 0 28 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="24" height="16" rx="3"/><path d="M7 9h.01M11 9h.01M15 9h.01M19 9h.01M7 13h.01M11 13h.01M15 13h.01M19 13h.01M9 17h10"/></svg></div><b>Palavra</b></button>
+    <button class="tile" data-go="quadrado"><div class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg></div><b>Quadrado mágico</b></button>
     <button class="tile wide" id="btnClear"><div class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round"><path d="M3 17l8-8 6 6-4 4H7z"/><path d="M11 9l4-4 6 6-4 4"/><path d="M3 21h18"/></svg></div><b>Limpar lousa</b></button>
   </div>
-  <div class="small" style="margin-top:auto">v1.0.6 · use no Bluefy</div>
+  <div class="small" style="margin-top:auto">v1.0.7 · use no Bluefy</div>
 </section>
 
 <!-- CARTA -->
@@ -129,21 +150,23 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
   </div>
   <div class="label">2. Valor</div>
   <div class="vals" id="vals"></div>
-  <div class="label" style="display:flex;justify-content:space-between"><span>3. Tamanho na lousa</span><span id="cSizeV">100%</span></div>
-  <input type="range" id="cSize" min="40" max="100" step="5" value="100">
   <button class="big" id="cSend" disabled>Enviar</button>
+  <div class="label" style="display:flex;justify-content:space-between"><span>Tamanho na lousa</span><span id="cSizeV">100%</span></div>
+  <input type="range" id="cSize" min="40" max="100" step="5" value="100">
   <div class="list" style="margin-top:auto"><div class="row"><label for="optFull">Mandar nome por extenso</label><input type="checkbox" class="sw" id="optFull"></div></div>
 </section>
 
 <!-- RELÓGIO -->
 <section class="screen" id="s-relogio">
   <div class="top"><button class="ibtn" data-go="inicio" aria-label="Voltar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg></button><div class="title">Relógio</div></div>
-  <div class="board"><canvas class="pv"></canvas><div class="empty">nada enviado ainda</div></div>
+  <div class="board"><canvas class="pv" id="pvClock"></canvas><div class="empty">nada enviado ainda</div></div>
   <div class="sbar"><div class="t"><i></i></div><div class="l"><span></span><span></span></div></div>
   <div class="display" id="hDisp"><span id="hh">--</span> : <span id="mm">--</span></div>
   <div class="small" id="hHint">Digite a hora</div>
   <div class="pad" id="hPad"></div>
   <button class="big" id="hSend" disabled>Enviar</button>
+  <div class="label" style="display:flex;justify-content:space-between"><span>Tamanho na lousa</span><span id="kSizeV">100%</span></div>
+  <input type="range" class="rng" id="kSize" min="40" max="100" step="5" value="100">
 </section>
 
 <!-- DATA DE NASCIMENTO -->
@@ -154,27 +177,65 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
   <div class="display" id="dDisp">__/__/__</div>
   <div class="small" id="dHint">Digite dia, mês e ano (2 dígitos)</div>
   <div class="pad" id="dPad"></div>
+  <button class="big" id="dSend" disabled>Enviar</button>
   <div class="label" style="display:flex;justify-content:space-between"><span>Tamanho na lousa</span><span id="dSizeV">100%</span></div>
   <input type="range" class="rng" id="dSize" min="40" max="100" step="5" value="100">
-  <button class="big" id="dSend" disabled>Enviar</button>
+</section>
+
+<!-- PALAVRA -->
+<section class="screen" id="s-palavra">
+  <div class="top"><button class="ibtn" data-go="inicio" aria-label="Voltar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg></button><div class="title">Palavra</div></div>
+  <div class="board"><canvas class="pv" id="pvWord"></canvas><div class="empty">nada enviado ainda</div></div>
+  <div class="sbar"><div class="t"><i></i></div><div class="l"><span></span><span></span></div></div>
+  <form id="wForm" autocomplete="off"><input class="wordin" id="wIn" type="text" enterkeyhint="send" autocapitalize="words" autocorrect="off" spellcheck="false" placeholder="Digite a palavra ou o nome"></form>
+  <button class="big" id="wSend" disabled>Enviar</button>
+  <div class="label" style="display:flex;justify-content:space-between"><span>Tamanho na lousa</span><span id="wSizeV">100%</span></div>
+  <input type="range" class="rng" id="wSize" min="40" max="100" step="5" value="100">
+</section>
+
+<!-- QUADRADO MÁGICO -->
+<section class="screen" id="s-quadrado">
+  <div class="top"><button class="ibtn" data-go="inicio" aria-label="Voltar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg></button><div class="title">Quadrado mágico</div></div>
+  <div class="board"><canvas class="pv" id="pvSq"></canvas><div class="empty">nada enviado ainda</div></div>
+  <div class="sbar"><div class="t"><i></i></div><div class="l"><span></span><span></span></div></div>
+  <div class="display" id="qDisp">—</div>
+  <div class="pad" id="qPad"></div>
+  <button class="big" id="qSend" disabled>Enviar</button>
+  <div class="label" style="display:flex;justify-content:space-between"><span>Tamanho na lousa</span><span id="qSizeV">100%</span></div>
+  <input type="range" class="rng" id="qSize" min="40" max="100" step="5" value="100">
+  <div class="label" style="display:flex;justify-content:space-between"><span>Espessura da linha</span><span id="qLineV">100%</span></div>
+  <input type="range" class="rng" id="qLine" min="40" max="200" step="10" value="100">
 </section>
 
 <!-- OPÇÕES -->
 <section class="screen" id="s-opcoes">
   <div class="top"><button class="ibtn" data-go="inicio" aria-label="Voltar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F2EDE4" stroke-width="2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg></button><div class="title">Opções</div></div>
-  <div class="label">Lousa</div>
-  <div class="list">
+  <button class="sec open" data-sec="geral">Geral</button>
+  <div class="secbody open" id="sec-geral"><div class="list">
     <div class="row"><div><div id="optName">Nenhuma lousa</div><div class="small" style="text-align:left" id="optState">desconectada</div></div><button class="mini" id="btnConn">Conectar</button></div>
     <div class="row"><span>Ao conectar</span><div class="seg" id="segConn"><button data-v="keep">Deixar como está</button><button data-v="clear">Limpar</button></div></div>
+    <div class="row"><span>Menu</span><div class="seg" id="segMenu"><button data-v="txt">Ícones com texto</button><button data-v="ico">Só ícones</button></div></div>
+    <div class="row"><label for="optRot">Girar imagem 180°</label><input type="checkbox" class="sw" id="optRot"></div>
+    <div class="row"><span>Teste</span><button class="mini" id="btnTest">Enviar 10:10</button></div>
+  </div></div>
+  <button class="sec" data-sec="apar">Aparência na lousa</button>
+  <div class="secbody" id="sec-apar"><div class="list">
     <div class="row"><label for="optDust">Sujeirinha de giz</label><input type="checkbox" class="sw" id="optDust"></div>
     <div class="row"><label for="optNum">Relógio com numerais</label><input type="checkbox" class="sw" id="optNum"></div>
-    <div class="row"><label for="optRot">Girar imagem 180°</label><input type="checkbox" class="sw" id="optRot"></div>
-    <div class="row"><div><div>Minha letra</div><div class="small" style="text-align:left" id="fontCount">0 de 0 feitos</div></div><div style="display:flex;gap:8px"><button class="mini" id="btnFont">Criar</button><button class="mini" id="btnRedo">Refazer</button><button class="mini" id="btnFontShare">Enviar</button></div></div>
-    <div class="row"><span>Teste</span><button class="mini" id="btnTest">Enviar 10:10</button></div>
+  </div></div>
+  <button class="sec" data-sec="letra">Minha letra</button>
+  <div class="secbody" id="sec-letra"><div class="list">
+    <div class="row"><div class="small" style="text-align:left" id="fontCount">0 de 0 feitos</div><div style="display:flex;gap:8px"><button class="mini" id="btnFont">Criar</button><button class="mini" id="btnRedo">Refazer</button><button class="mini" id="btnFontShare">Enviar</button></div></div>
+  </div></div>
+  <button class="sec" data-sec="postit">Post-It</button>
+  <div class="secbody" id="sec-postit"><div class="list"><div class="note">Chega na próxima versão.</div></div></div>
+  <button class="sec" data-sec="assist">Assistente</button>
+  <div class="secbody" id="sec-assist"><div class="list"><div class="note">Chega na próxima versão.</div></div></div>
+  <button class="sec" data-sec="reg">Registro</button>
+  <div class="secbody" id="sec-reg">
+    <div id="log"></div>
+    <button class="big alt" id="btnCopy" style="margin-top:8px">Copiar registro</button>
   </div>
-  <div class="label">Registro</div>
-  <div id="log"></div>
-  <button class="big alt" id="btnCopy">Copiar registro</button>
 </section>
 
 <!-- ESCRITA MANUAL -->
@@ -880,6 +941,53 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
     ctx.drawImage(img, (x0 + vw * s + gap) * S, y0 * S, sw * S, h * S);
     return { x: W / 2, y: H / 2, rad: tot / 2 + 30 };
   }
+
+  // ===== quadrado mágico 4×4: linhas, colunas, diagonais, centro, cantos e quadrantes somam N =====
+  function magicSquare(N, r) {
+    let q = [[N - 20, 1, 12, 7], [11, 8, N - 21, 2], [5, 10, 3, N - 18], [4, N - 19, 6, 9]];
+    const rot = (m) => m[0].map((_, c) => m.map(row => row[c]).reverse());
+    const k = Math.floor(r() * 4); for (let i = 0; i < k; i++) q = rot(q);    // gira e espelha ao acaso
+    if (r() < 0.5) q = q.map(row => row.slice().reverse());
+    return q;
+  }
+  function checkSquare(q, N) {
+    const sums = [];
+    for (let i = 0; i < 4; i++) { sums.push(q[i].reduce((a, b) => a + b, 0)); sums.push(q[0][i] + q[1][i] + q[2][i] + q[3][i]); }
+    sums.push(q[0][0] + q[1][1] + q[2][2] + q[3][3], q[0][3] + q[1][2] + q[2][1] + q[3][0]);
+    sums.push(q[1][1] + q[1][2] + q[2][1] + q[2][2], q[0][0] + q[0][3] + q[3][0] + q[3][3]);
+    [[0, 0], [0, 2], [2, 0], [2, 2]].forEach(([a, b]) => sums.push(q[a][b] + q[a][b + 1] + q[a + 1][b] + q[a + 1][b + 1]));
+    const flat = q.flat();
+    return sums.every(x => x === N) && flat.every(x => x > 0) && new Set(flat).size === 16;
+  }
+  function drawSquare(ctx, N, r, size, line) {
+    const q = magicSquare(N, r), side = 0.86 * H * (size || 1), cs = side / 4, x0 = (W - side) / 2, y0 = (H - side) / 2;
+    const glw = 8 * (line || 1);
+    // grade a giz, levemente torta
+    const grid = [];
+    for (let i = 0; i <= 4; i++) {
+      const a = [], b = [];
+      for (let t = 0; t <= 12; t++) {
+        const u = -6 + t * (side + 12) / 12;
+        a.push([x0 + i * cs + (r() - 0.5) * 3, y0 + u]); b.push([x0 + u, y0 + i * cs + (r() - 0.5) * 3]);
+      }
+      grid.push(a, b);
+    }
+    strokeHand(ctx, grid, 1, 0, 0, glw);
+    if (HAND) q.forEach((row, ri) => row.forEach((v, ci) => {
+      const st = handLine(String(v), r), b = sbox(st), bw = b.x1 - b.x0, bh = b.y1 - b.y0;
+      let s = cs * 0.48 / bh; if (bw * s > cs * 0.7) s = cs * 0.7 / bw;
+      const cx = x0 + ci * cs + cs / 2 + (r() - 0.5) * 4, cy = y0 + ri * cs + cs / 2 + (r() - 0.5) * 4;
+      strokeHand(ctx, st, s, cx - (b.x0 + bw / 2) * s, cy - (b.y0 + bh / 2) * s, Math.max(6, Math.min(12, s * 0.07)));
+    }));
+    else q.forEach((row, ri) => row.forEach((v, ci) => { ctx.save(); ctx.fillStyle = '#fff'; ctx.font = WGT + Math.round(cs * 0.5 * S) + 'px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(v), (x0 + ci * cs + cs / 2) * S, (y0 + ri * cs + cs / 2) * S); ctx.restore(); }));
+    return { x: W / 2, y: H / 2, rad: side / 2 + 20 };
+  }
+  function scaleMask(c, k) {                          // relógio menor: encolhe pelo centro
+    const out = makeCanvas(c.width, c.height), o = out.getContext('2d');
+    o.fillStyle = '#000'; o.fillRect(0, 0, out.width, out.height); o.imageSmoothingEnabled = true;
+    o.drawImage(c, (1 - k) * c.width / 2, (1 - k) * c.height / 2, c.width * k, c.height * k);
+    return out;
+  }
   function render(kind, data, opts) {
     const r = rng((opts.seed != null ? opts.seed : (Date.now() ^ (Math.random() * 1e9))) >>> 0);
     const { c, ctx } = newMask();
@@ -892,9 +1000,12 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
     else if (kind === 'text') focus = drawText(ctx, data.text, r);
     else if (kind === 'card') focus = data.full ? drawText(ctx, cardName(data.v, data.s), r) : drawCard(ctx, data.v, data.s, r);
     else if (kind === 'strokes') focus = drawStrokes(ctx, data.strokes, r);
+    else if (kind === 'square') focus = drawSquare(ctx, data.n, r, sz, opts.line);
     let mask = c;
     const k = kind === 'card' && opts.size ? Math.min(1, Math.max(0.3, opts.size)) : 1;   // tamanho escolhido na barra
-    if (useHand) { /* já posicionado e no tamanho certo */ }
+    if (kind === 'clock' && sz < 1) { mask = scaleMask(c, sz); focus = { x: W / 2, y: H / 2, rad: 270 * sz }; }
+    else if (kind === 'square') { /* já no tamanho certo */ }
+    else if (useHand) { /* já posicionado e no tamanho certo */ }
     else if (kind === 'text' || (kind === 'card' && data.full)) { const f = fitMask(c, 0.78 * k, 0.88 * k, true); mask = f.c; focus = f.focus || focus; }
     else if (kind === 'card') { const f = fitMask(c, 0.78 * k, 0.9 * k, true); mask = f.c; focus = f.focus || focus; }
     if (kind === 'clear') {
@@ -928,7 +1039,7 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
     return n < 0 ? null : n;
   }
 
-  const api = { W, H, render, drawPreview, daysLived, cardName, rng, setHand, setSuits, hasHand: () => !!HAND };
+  const api = { W, H, render, drawPreview, daysLived, cardName, rng, setHand, setSuits, hasHand: () => !!HAND, magicSquare, checkSquare };
   if (typeof module !== 'undefined') module.exports = api; else root.Lousa = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -1169,7 +1280,7 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
   window.addEventListener('error', (e) => log('ERRO: ' + e.message));
 
   // ---------- opções (guardadas no iPhone) ----------
-  const DEF = { dust: true, numerals: false, rotate180: false, full: false, onConnect: 'keep', cardSize: 100, dateSize: 100 };
+  const DEF = { dust: true, numerals: false, rotate180: false, full: false, onConnect: 'keep', cardSize: 100, dateSize: 100, clockSize: 100, wordSize: 100, sqSize: 100, sqLine: 100, menu: 'txt' };
   let opt = Object.assign({}, DEF);
   try { Object.assign(opt, JSON.parse(localStorage.getItem('lousa.opt') || '{}')); } catch (e) {}
   function saveOpt() { try { localStorage.setItem('lousa.opt', JSON.stringify(opt)); } catch (e) {} }
@@ -1177,14 +1288,27 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
   function drawSeg() { $$('#segConn button').forEach(b => b.classList.toggle('sel', b.dataset.v === opt.onConnect)); }
   $$('#segConn button').forEach(b => b.addEventListener('click', () => { opt.onConnect = b.dataset.v; saveOpt(); drawSeg(); }));
   drawSeg();
+  function drawMenu() { $$('#segMenu button').forEach(b => b.classList.toggle('sel', b.dataset.v === opt.menu)); document.body.classList.toggle('soicones', opt.menu === 'ico'); }
+  $$('#segMenu button').forEach(b => b.addEventListener('click', () => { opt.menu = b.dataset.v; saveOpt(); drawMenu(); }));
+  drawMenu();
+  $$('.sec').forEach(b => b.addEventListener('click', () => {          // seções das Opções: abre uma, fecha as outras
+    const open = !b.classList.contains('open');
+    $$('.sec').forEach(x => { x.classList.remove('open'); $('#sec-' + x.dataset.sec).classList.remove('open'); });
+    if (open) { b.classList.add('open'); $('#sec-' + b.dataset.sec).classList.add('open'); }
+  }));
   bindSw('#optDust', 'dust'); bindSw('#optNum', 'numerals'); bindSw('#optRot', 'rotate180'); bindSw('#optFull', 'full');
 
   // ---------- navegação ----------
   function go(name) {
     $$('.screen').forEach(s => s.classList.toggle('on', s.id === 's-' + name));
     window.scrollTo(0, 0);
+    if (!running) bar(null);                       // trocou de tela: barra zerada (só continua se ainda estiver enviando)
+    if (name !== 'inicio' && name !== 'opcoes') emptyBoard(name);   // lousa de cima vazia até ter prévia
     if (name === 'relogio') resetClock();
     if (name === 'nascimento') resetDate();
+    if (name === 'palavra') { $('#wIn').value = ''; $('#wSend').disabled = true; }
+    if (name === 'quadrado') { qs = ''; drawSqUI(); }
+    if (name === 'carta' && val) previewCard();
   }
   $$('[data-go]').forEach(b => b.addEventListener('click', () => go(b.dataset.go)));
 
@@ -1201,6 +1325,7 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
     if (txt != null) barTxt = txt;
     $$('.sbar').forEach(b => {
       b.classList.toggle('on', p != null);
+      if (p == null) { b.classList.remove('ok', 'bad'); b.querySelector('.t i').style.transition = 'none'; b.querySelector('.t i').style.width = '0%'; void b.offsetWidth; b.querySelector('.t i').style.transition = ''; }
       b.classList.toggle('ok', state === 'ok'); b.classList.toggle('bad', state === 'bad');
       if (p == null) return;
       b.querySelector('.t i').style.width = Math.round(p * 100) + '%';
@@ -1288,9 +1413,22 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
   // ---------- desenhar e enviar ----------
   const pvs = $$('.pv');
   let hasPreview = false;
+  // tela principal: última enviada · outras telas: prévia do que vai ser enviado
   function showPreview(px) {
-    pvs.forEach(c => Lousa.drawPreview(c, px));
-    if (!hasPreview) { $$('.board .empty').forEach(e => e.remove()); hasPreview = true; }
+    const c = $('#s-inicio .pv'); Lousa.drawPreview(c, px);
+    const e = $('#s-inicio .board .empty'); if (e) e.remove();
+  }
+  function drawBoard(canvas, px) {
+    Lousa.drawPreview(canvas, px);
+    const e = canvas.parentNode.querySelector('.empty'); if (e) e.remove();
+  }
+  function emptyBoard(name) {
+    const sc = $('#s-' + name); if (!sc) return;
+    const cv = sc.querySelector('.board canvas'); if (!cv) return;
+    cv.getContext('2d').clearRect(0, 0, cv.width, cv.height);
+    let d = sc.querySelector('.board .empty');
+    if (!d) { d = document.createElement('div'); d.className = 'empty'; cv.parentNode.appendChild(d); }
+    d.textContent = 'a prévia aparece aqui';
   }
   let fontsReady = null;
   let waitFonts = function () {
@@ -1348,7 +1486,8 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
           }
           setStatus('busy', a > 1 ? 'Reenviando… (' + a + '/3)' : 'Enviando…');
           bar(0, null, (a > 1 ? 'Reenviando ' : 'Enviando ') + job.label + '…');
-          await board.sendCompressed(job.comp, (p) => bar(p));
+          let live = true;                           // depois do fim, avisos atrasados do Bluetooth não mexem mais na barra
+          try { await board.sendCompressed(job.comp, (p) => { if (live) bar(p); }); } finally { live = false; }
           okSent = true;
         } catch (e) {
           lastErr = e;
@@ -1393,8 +1532,7 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
       const ro = { dust: opt.dust, rotate180: false, seed: cardSeed, size: opt.cardSize / 100 };
       if (underPx && opt.dust) ro.under = underPx;
       const res = Lousa.render('card', { v: val, s: suit, full: opt.full }, ro);
-      Lousa.drawPreview($('#pvCard'), res.px);
-      const e = $('#s-carta .board .empty'); if (e) e.remove();
+      drawBoard($('#pvCard'), res.px);
       await new Promise(r => requestAnimationFrame(r));
     } while (pvAgain);
     pvBusy = false;
@@ -1429,6 +1567,32 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
   }
   function shake(el) { el.classList.remove('err'); void el.offsetWidth; el.classList.add('err'); setTimeout(() => el.classList.remove('err'), 600); }
 
+  // prévia ao vivo genérica: get() devolve [tipo, dados, opções] ou null
+  function makePreview(get, canvasSel) {
+    let busy = false, again = false;
+    return async function run() {
+      if (busy) { again = true; return; }
+      busy = true; await waitFonts();
+      do {
+        again = false;
+        const job = get();
+        if (job) {
+          const ro = Object.assign({ dust: opt.dust }, job[2]);
+          if (underPx && opt.dust) ro.under = underPx;
+          drawBoard($(canvasSel), Lousa.render(job[0], job[1], ro).px);
+        }
+        await new Promise(r => requestAnimationFrame(r));
+      } while (again);
+      busy = false;
+    };
+  }
+  function bindSize(sel, key, onChange) {
+    const el = $(sel), lab = $(sel + 'V');
+    el.value = opt[key]; if (lab) lab.textContent = opt[key] + '%';
+    el.addEventListener('input', () => { opt[key] = +el.value; if (lab) lab.textContent = opt[key] + '%'; onChange(); });
+    el.addEventListener('change', () => saveOpt());
+  }
+
   // ---------- relógio: hora primeiro, depois minutos ----------
   let hs = '', ms = '', stage = 'h';
   function resetClock() { hs = ''; ms = ''; stage = 'h'; drawClockUI(); }
@@ -1459,12 +1623,20 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
     } else if (ms.length < 2) {
       if (ms.length === 0 && k > '5') { shake($('#hDisp')); return; }
       ms += k; drawClockUI();
+      if (ms.length === 2) { clockSeed = (Math.random() * 1e9) >>> 0; previewClock(); }
     }
   }, '→');
+  let clockSeed = 1;
+  const previewClock = makePreview(() => {
+    if (!(stage === 'm' && ms.length === 2)) return null;
+    return ['clock', { h: parseInt(hs, 10), m: parseInt(ms, 10) }, { numerals: opt.numerals, seed: clockSeed, size: opt.clockSize / 100 }];
+  }, '#pvClock');
+  bindSize('#kSize', 'clockSize', previewClock);
   $('#hSend').addEventListener('click', () => {
     const h = parseInt(hs, 10), m = parseInt(ms, 10);
     if (isNaN(h) || isNaN(m) || h > 23 || m > 59) { shake($('#hDisp')); return; }
-    send('clock', { h, m }, hs + ':' + ms);
+    send('clock', { h, m }, hs + ':' + ms, { seed: clockSeed, size: opt.clockSize / 100 });
+    clockSeed = (Math.random() * 1e9) >>> 0;
   });
 
   // ---------- data de nascimento ----------
@@ -1498,8 +1670,7 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
       const ro = { dust: opt.dust, seed: dateSeed, size: opt.dateSize / 100 };
       if (underPx && opt.dust) ro.under = underPx;
       const res = Lousa.render('text', { text: String(dateResult()) }, ro);
-      Lousa.drawPreview($('#pvDate'), res.px);
-      const e = $('#s-nascimento .board .empty'); if (e) e.remove();
+      drawBoard($('#pvDate'), res.px);
       await new Promise(rr => requestAnimationFrame(rr));
     } while (dAgain);
     dBusy = false;
@@ -1511,6 +1682,52 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
     const r = dateResult(); if (typeof r !== 'number') return;
     send('text', { text: String(r) }, r + ' dias', { seed: dateSeed, size: opt.dateSize / 100 });
     dateSeed = (Math.random() * 1e9) >>> 0;
+  });
+
+  // ---------- palavra (teclado do iPhone, sua letra) ----------
+  let wordSeed = 1;
+  const wordTxt = () => $('#wIn').value.trim().replace(/\s+/g, ' ');
+  const previewWord = makePreview(() => wordTxt() ? ['text', { text: wordTxt() }, { seed: wordSeed, size: opt.wordSize / 100 }] : null, '#pvWord');
+  bindSize('#wSize', 'wordSize', previewWord);
+  $('#wIn').addEventListener('input', () => { $('#wSend').disabled = !wordTxt(); if (wordTxt()) previewWord(); else emptyBoard('palavra'); });
+  function sendWord() {
+    const t = wordTxt(); if (!t) return;
+    send('text', { text: t }, t, { seed: wordSeed, size: opt.wordSize / 100 });
+    wordSeed = (Math.random() * 1e9) >>> 0;
+  }
+  $('#wSend').addEventListener('click', sendWord);
+  $('#wForm').addEventListener('submit', (e) => { e.preventDefault(); $('#wIn').blur(); sendWord(); });   // "Enviar" do teclado do iPhone
+
+  // ---------- quadrado mágico ----------
+  let qs = '', sqSeed = 1;
+  function drawSqUI() {
+    const n = parseInt(qs, 10);
+    $('#qDisp').textContent = qs || '—';
+    const ok = n >= 34;
+    $('#qDisp').style.color = qs && !ok ? 'var(--bad)' : '';
+    $('#qSend').disabled = !ok;
+    if (ok) previewSq(); else emptyBoard('quadrado');
+  }
+  const previewSq = makePreview(() => {
+    const n = parseInt(qs, 10); if (!(n >= 34)) return null;
+    return ['square', { n }, { seed: sqSeed, size: opt.sqSize / 100, line: opt.sqLine / 100 }];
+  }, '#pvSq');
+  makePad($('#qPad'), (k) => {
+    if (k === '⌫') qs = qs.slice(0, -1);
+    else if (k && qs.length < 5) { qs += k; sqSeed = (Math.random() * 1e9) >>> 0; }
+    if (qs === '0') qs = '';
+    drawSqUI();
+  });
+  bindSize('#qSize', 'sqSize', previewSq);
+  bindSize('#qLine', 'sqLine', previewSq);
+  $('#qSend').addEventListener('click', () => {
+    const n = parseInt(qs, 10);
+    if (!(n >= 34)) { toast('O número precisa ser 34 ou mais', true); return; }
+    const q = Lousa.magicSquare(n, Lousa.rng(sqSeed));
+    if (!Lousa.checkSquare(q, n)) { toast('Erro na conta do quadrado — não enviado', true); log('Quadrado ' + n + ' não fechou: ' + JSON.stringify(q)); return; }
+    log('Quadrado ' + n + ' conferido: todas as somas = ' + n);
+    send('square', { n }, 'quadrado ' + n, { seed: sqSeed, size: opt.sqSize / 100, line: opt.sqLine / 100 });
+    sqSeed = (Math.random() * 1e9) >>> 0;
   });
 
   // ---------- escrita manual ----------
@@ -1659,7 +1876,7 @@ button{font:inherit;color:inherit;border:none;background:none;cursor:pointer}
   });
 
   setStatus('', navigator.bluetooth ? 'Conectar lousa' : 'Abra no Bluefy para conectar');
-  log('Lousa v1.0.6 iniciada · letra ' + (Lousa.hasHand() ? 'sua' : 'padrão') + ' · Bluetooth: ' + (navigator.bluetooth ? 'sim' : 'não'));
+  log('Lousa v1.0.7 iniciada · letra ' + (Lousa.hasHand() ? 'sua' : 'padrão') + ' · Bluetooth: ' + (navigator.bluetooth ? 'sim' : 'não'));
   drawClockUI(); drawDateUI(); drawCardUI();
   // ao abrir: volta sozinho para a lousa já usada (se o Bluefy permitir)
   if (navigator.bluetooth) {
