@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Interestelar</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; -webkit-user-select: none; user-select: none; cursor: default; }
+  #cover, #stage { position: fixed; inset: 0; }
+  #cover { z-index: 3; cursor: pointer; }
+  #cover .bg { position: absolute; inset: -40px; background: url(assets/capa.png) center / cover no-repeat; filter: blur(30px) brightness(.35); }
+  #cover img { position: absolute; inset: 0; margin: auto; max-width: 100%; max-height: 100%; height: 100%; object-fit: contain; }
+  #stage { z-index: 1; background: #000; }
+  #stage video, #stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+  #stage canvas { z-index: 2; }
+  body.playing { cursor: none; }
+  #dot { position: fixed; right: 6px; bottom: 6px; width: 6px; height: 6px; border-radius: 50%; z-index: 9; opacity: .35; display: none; }
+  #info { position: fixed; left: 10px; top: 10px; z-index: 9; color: #9f9; font: 14px/1.4 monospace; background: rgba(0,0,0,.6); padding: 6px 10px; border-radius: 6px; display: none; white-space: pre; }
+  body.ensaio #info, body.ensaio #dot { display: block; }
+  #cfg { position: fixed; inset: 0; z-index: 10; background: rgba(10,10,12,.96); color: #eee; font: 17px system-ui, sans-serif; display: none; overflow: auto; }
+  #cfg .box { max-width: 520px; margin: 40px auto; padding: 0 20px; }
+  #cfg h2 { font-weight: 600; margin: 0 0 18px; }
+  #cfg label { display: block; margin: 16px 0 6px; color: #aaa; font-size: 14px; }
+  #cfg input[type=text], #cfg input[type=password] { width: 100%; box-sizing: border-box; padding: 11px; font-size: 17px; background: #1c1c20; color: #fff; border: 1px solid #333; border-radius: 8px; }
+  #cfg .row { display: flex; gap: 10px; align-items: center; margin-top: 16px; }
+  #cfg button { padding: 11px 18px; font-size: 16px; border: 0; border-radius: 8px; background: #2d6cdf; color: #fff; cursor: pointer; }
+  #cfg button.sec { background: #333; }
+  #cfg .st { margin-top: 18px; font-size: 14px; color: #aaa; white-space: pre-wrap; }
+  #cfg small { color: #777; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <video id="v" src="trailer.mp4" preload="auto" playsinline webkit-playsinline></video>
+  <canvas id="c" width="1920" height="804"></canvas>
+</div>
+<div id="cover"><div class="bg"></div><img src="assets/capa.png" alt=""></div>
+<div id="dot"></div>
+<div id="info"></div>
+
+<div id="cfg"><div class="box">
+  <h2>Configurações do player</h2>
+  <label>Chave do Ably (a mesma do Relógio e da Lousa)</label>
+  <input id="cKey" type="password" autocomplete="off" spellcheck="false">
+  <label>Canal</label>
+  <input id="cCh" type="text" autocomplete="off" spellcheck="false">
+  <label>Hora fixada (usada se nenhuma hora chegar)</label>
+  <input id="cFix" type="text" inputmode="numeric" placeholder="8:20">
+  <div class="row"><input id="cEns" type="checkbox" style="width:22px;height:22px"><span>Modo ensaio (mostra a hora recebida no canto)</span></div>
+  <label>Testar aqui: digite uma hora e aperte Usar</label>
+  <div class="row" style="margin-top:0"><input id="cTest" type="text" inputmode="numeric" placeholder="10:45"><button id="bTest" class="sec">Usar</button></div>
+  <div class="row"><button id="bSave">Salvar e fechar</button><button id="bClose" class="sec">Fechar</button></div>
+  <div class="st" id="cSt"></div>
+  <p><small>Para abrir esta tela: tecla C no computador, ou 5 toques rápidos no canto de cima à esquerda no celular.<br>
+  Tecla E liga/desliga o modo ensaio. Tecla Home volta para a capa.</small></p>
+</div></div>
+
+<script src="ably.min.js"></script>
+<script>
+'use strict';
+// ====================== settings ======================
+const LS = 'interestelar_player_v1';
+const Q = new URLSearchParams(location.search);
+const cfg = Object.assign({ key: '-WkBxA.FUModg:DGe6U1wyeEuOu4_3iuubjnS144Ol3ojOlTb9mmqgmv0', ch: 'interestelar', fix: '8:20', ensaio: false }, JSON.parse(localStorage.getItem(LS) || '{}'));
+if (!cfg.key) cfg.key = '-WkBxA.FUModg:DGe6U1wyeEuOu4_3iuubjnS144Ol3ojOlTb9mmqgmv0';
+if (Q.get('key')) cfg.key = Q.get('key');
+if (Q.get('canal')) cfg.ch = Q.get('canal');
+if (Q.get('fixa')) cfg.fix = Q.get('fixa');
+if (Q.has('ensaio')) cfg.ensaio = Q.get('ensaio') !== '0';
+const saveCfg = () => localStorage.setItem(LS, JSON.stringify(cfg));
+saveCfg();
+document.body.classList.toggle('ensaio', !!cfg.ensaio);
+
+function parseTime(s) {
+  if (s && typeof s === 'object') { const h = +s.h, m = +s.m; return valid(h, m) ? { h: h % 12 || 12, m } : null; }
+  s = String(s || '').trim().replace(/h/i, ':');
+  let h, m, k = s.match(/^(\d{1,2})\D+(\d{1,2})$/);
+  if (k) { h = +k[1]; m = +k[2]; }
+  else if ((k = s.match(/^\d{3,4}$/))) { h = +s.slice(0, -2); m = +s.slice(-2); }
+  else if ((k = s.match(/^\d{1,2}$/))) { h = +s; m = 0; }
+  else return null;
+  return valid(h, m) ? { h: h % 12 || 12, m } : null;
+  function valid(h, m) { return Number.isInteger(h) && Number.isInteger(m) && h >= 0 && h <= 24 && m >= 0 && m <= 59; }
+}
+const fmt = t => t ? t.h + ':' + String(t.m).padStart(2, '0') : '—';
+
+// ====================== elements / state ======================
+const v = document.getElementById('v'), cv = document.getElementById('c'), cover = document.getElementById('cover');
+const info = document.getElementById('info'), dot = document.getElementById('dot');
+let META = null, CLOSE0 = 0, NCLOSE = 0, FPS = 23.976, LOCK = 0;
+const S = { // time state
+  wanted: null,      // last time received (or fixed)
+  ready: null,       // time whose images are on the GPU
+  shown: null,       // time locked for the current close
+  src: '', ackId: null
+};
+let gl = null, GLok = false;
+
+function log(msg) { console.log('[player]', msg); }
+function updInfo(extra) {
+  if (!cfg.ensaio) return;
+  info.textContent = 'recebida: ' + fmt(S.wanted) + (S.src ? ' (' + S.src + ')' : '') + '\npronta:   ' + fmt(S.ready) +
+    (S.shown ? '\nno close: ' + fmt(S.shown) : '') + '\nAbly: ' + ablyState + (extra ? '\n' + extra : '');
+}
+
+// ====================== compose worker ======================
+const worker = new Worker('compose.js');
+let jobId = 0;
+worker.onmessage = e => {
+  const d = e.data;
+  if (d.type === 'ready') { if (GLok) GL.setS0(d.s0, d.size); log('S0 ' + Math.round(d.ms) + ' ms'); }
+  else if (d.type === 'done') {
+    if (d.id !== jobId) return; // a newer time already replaced this one
+    if (locked()) { log('pronto tarde demais: ' + d.h + ':' + d.m); ack('tarde'); return; }
+    if (GLok) GL.setStates(d.states); S.ready = { h: d.h, m: d.m }; log('pronto ' + fmt(S.ready) + ' em ' + Math.round(d.ms) + ' ms');
+    ack('pronto'); updInfo();
+  } else if (d.type === 'error') log('erro worker ' + d.msg);
+};
+function setTime(t, src, id) {
+  if (!t) return false;
+  if (locked()) { log('ignorada (close já começou): ' + fmt(t)); return false; }
+  S.wanted = t; S.src = src; S.ackId = id || null;
+  jobId++; worker.postMessage({ type: 'compose', id: jobId, h: t.h, m: t.m, secs: [270, 273, 276] });
+  updInfo(); return true;
+}
+// the close is "locked" from LOCK frames before its first frame until the end of the trailer
+function curFrame() { return Math.round(v.currentTime * FPS); }
+function locked() { return !v.paused && curFrame() >= CLOSE0 - LOCK && curFrame() < CLOSE0 + NCLOSE + 24; }
+
+// ====================== WebGL ======================
+const GL = (() => {
+  let KK = 1, prog1, prog2, fb, tA, tB, tVid, tS0, tS = {}, W = 0, H = 0, vao, uni1 = {}, uni2 = {}, haveS = false;
+  const VS = `#version 300 es
+  in vec2 p; void main(){ gl_Position = vec4(p,0.,1.); }`;
+  // pass 1: warp (still -> frame, bilinear) + horizontal gaussian, for "no hands" and "hands"
+  const FS1 = `#version 300 es
+  precision highp float;
+  uniform sampler2D s0, sh; uniform vec2 org, sz; uniform mat3 inv; uniform float sig, kk; uniform int rad;
+  layout(location=0) out vec4 o0; layout(location=1) out vec4 o1;
+  vec2 uv(vec2 fp){ vec2 s=(inv*vec3(fp,1.)).xy; return (s-org+.5)/sz; }
+  void main(){
+    vec2 fp=vec2(gl_FragCoord.x-.5, 803.-(gl_FragCoord.y-.5));   // frame pixel, top-down
+    vec3 a=vec3(0.), b=vec3(0.); float ws=0.;
+    for(int j=-24;j<=24;j++){ if(j<-rad||j>rad) continue;
+      float w = sig>0.05 ? exp(-float(j*j)/(2.*sig*sig)) : (j==0?1.:0.);
+      vec2 q=uv(fp+vec2(float(j),0.)); a+=w*texture(s0,q).rgb; b+=w*texture(sh,q).rgb; ws+=w; }
+    o0=vec4(a/ws*255./kk,1.); o1=vec4(b/ws*255./kk,1.);   // textures give 0..1
+  }`;
+  // pass 2: vertical gaussian, grade both, add the difference to the video frame
+  const FS2 = `#version 300 es
+  precision highp float;
+  uniform sampler2D vid, a0, a1; uniform float sig; uniform int rad, on; uniform vec4 box; uniform float curve[256]; uniform float sat, bsh, kk;
+  out vec4 o;
+  float s2l(float c){ c/=255.; return c<=0.04045? c/12.92 : pow((c+0.055)/1.055,2.4); }
+  float l2s(float c){ c=clamp(c,0.,1.); return 255.*(c<=0.0031308? c*12.92 : 1.055*pow(c,1./2.4)-0.055); }
+  float fF(float t){ return t>0.008856? pow(t,1./3.) : 7.787*t+16./116.; }
+  float fI(float t){ return t>0.206893? t*t*t : (t-16./116.)/7.787; }
+  vec3 lab(vec3 c){ vec3 l=vec3(s2l(c.r),s2l(c.g),s2l(c.b));
+    float X=(0.4124564*l.r+0.3575761*l.g+0.1804375*l.b)/0.95047, Y=0.2126729*l.r+0.7151522*l.g+0.0721750*l.b, Z=(0.0193339*l.r+0.1191920*l.g+0.9503041*l.b)/1.08883;
+    float fx=fF(X), fy=fF(Y), fz=fF(Z); return vec3((116.*fy-16.)*2.55, 500.*(fx-fy)+128., 200.*(fy-fz)+128.); }
+  vec3 rgb(vec3 L){ float l=L.x/2.55, fy=(l+16.)/116., fx=fy+(L.y-128.)/500., fz=fy-(L.z-128.)/200.;
+    float X=fI(fx)*0.95047, Y=fI(fy), Z=fI(fz)*1.08883;
+    return vec3(l2s(3.2404542*X-1.5371385*Y-0.4985314*Z), l2s(-0.9692660*X+1.8760108*Y+0.0415560*Z), l2s(0.0556434*X-0.2040259*Y+1.0572252*Z)); }
+  float crv(float x){ x=clamp(x,0.,255.); int i=int(min(floor(x),254.)); return mix(curve[i],curve[i+1],x-float(i)); }
+  vec3 grade(vec3 c){ vec3 L=lab(clamp(c,0.,255.)); float L1=crv(L.x); float k=sat*pow(clamp((L1+8.)/(L.x+8.),1.,2.5),0.35);
+    return rgb(vec3(L1, 128.+(L.y-128.)*k, 128.+(L.z-128.)*k+bsh)); }
+  void main(){
+    ivec2 P=ivec2(gl_FragCoord.xy); vec2 fp=vec2(P.x, 803-P.y);
+    vec3 base=texelFetch(vid, ivec2(P.x, 803-P.y), 0).rgb*255.;
+    if(on==1 && fp.x>=box.x && fp.y>=box.y && fp.x<=box.z && fp.y<=box.w){
+      vec3 a=vec3(0.), b=vec3(0.); float ws=0.;
+      for(int j=-24;j<=24;j++){ if(j<-rad||j>rad) continue;
+        float w = sig>0.05 ? exp(-float(j*j)/(2.*sig*sig)) : (j==0?1.:0.);
+        ivec2 q=ivec2(P.x, clamp(P.y+j,0,803)); a+=w*texelFetch(a0,q,0).rgb; b+=w*texelFetch(a1,q,0).rgb; ws+=w; }
+      base += grade(b/ws*kk) - grade(a/ws*kk);
+    }
+    o=vec4(clamp(base/255.,0.,1.),1.);
+  }`;
+  function sh(type, src) { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
+  function prog(fs) { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs));
+    gl.bindAttribLocation(p, 0, 'p'); gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p)); return p; }
+  function tex(w, h, fmtI, fmt, type, filt) { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filt); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filt);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    if (w) gl.texImage2D(gl.TEXTURE_2D, 0, fmtI, w, h, 0, fmt, type, null); return t; }
+  function unis(p, names) { const o = {}; names.forEach(n => o[n] = gl.getUniformLocation(p, n)); return o; }
+  function init() {
+    gl = cv.getContext('webgl2', { antialias: false, premultipliedAlpha: false, preserveDrawingBuffer: false, alpha: false });
+    if (!gl) throw new Error('sem webgl2');
+    const fl = gl.getExtension('EXT_color_buffer_float') || gl.getExtension('EXT_color_buffer_half_float');
+    prog1 = prog(FS1); prog2 = prog(FS2);
+    uni1 = unis(prog1, ['s0', 'sh', 'org', 'sz', 'inv', 'sig', 'rad', 'kk']);
+    uni2 = unis(prog2, ['vid', 'a0', 'a1', 'sig', 'rad', 'on', 'box', 'curve', 'sat', 'bsh', 'kk']);
+    vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+    const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    const [iF, ty] = fl ? [gl.RGBA16F, gl.HALF_FLOAT] : [gl.RGBA8, gl.UNSIGNED_BYTE];
+    KK = fl ? 1 : 255; // values are stored /255 when only 8 bit targets exist
+    tA = tex(1920, 804, iF, gl.RGBA, ty, gl.NEAREST); tB = tex(1920, 804, iF, gl.RGBA, ty, gl.NEAREST);
+    fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tA, 0);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, tB, 0);
+    gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw new Error('fbo');
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    tVid = tex(0, 0, 0, 0, 0, gl.NEAREST);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.useProgram(prog2); gl.uniform1fv(uni2.curve, META.curve); gl.uniform1f(uni2.sat, META.grade.sat); gl.uniform1f(uni2.bsh, META.grade.bshift); gl.uniform1f(uni2.kk, KK);
+    gl.useProgram(prog1); gl.uniform1f(uni1.kk, KK);
+    W = 1920; H = 804;
+  }
+  function upload(t, data, size) { gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, size[0], size[1], 0, gl.RGBA, gl.UNSIGNED_BYTE, data); }
+  let SZ = [1, 1];
+  function setS0(d, size) { SZ = size; tS0 = tex(0, 0, 0, 0, 0, gl.LINEAR); upload(tS0, d, size); }
+  function setStates(st) { for (const k in st) { if (!tS[k]) tS[k] = tex(0, 0, 0, 0, 0, gl.LINEAR); upload(tS[k], st[k], SZ); } haveS = true; }
+  // frame-space box touched by the bbox (+ blur margin), for each close frame
+  function boxFor(fr) {
+    const [a, b, c, d, e, f] = fr.a, [x0, y0, x1, y1] = META.bbox, m = Math.ceil(3 * fr.sig) + 3;
+    const xs = [x0, x1, x0, x1].map((x, i) => a * x + b * [y0, y0, y1, y1][i] + c), ys = [x0, x1, x0, x1].map((x, i) => d * x + e * [y0, y0, y1, y1][i] + f);
+    return [Math.min(...xs) - m, Math.min(...ys) - m, Math.max(...xs) + m, Math.max(...ys) + m];
+  }
+  function draw(closeIdx) {
+    gl.bindTexture(gl.TEXTURE_2D, tVid); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, v);
+    const on = closeIdx >= 0 && closeIdx < NCLOSE && haveS;
+    let fr = null, rad = 0;
+    if (on) {
+      fr = META.frames[closeIdx]; rad = Math.min(24, Math.ceil(3 * fr.sig));
+      const [a, b, c, d, e, f] = fr.a, det = a * e - b * d;
+      const inv = [e / det, -d / det, 0, -b / det, a / det, 0, (b * f - c * e) / det, (c * d - a * f) / det, 1]; // column-major
+      const bx = boxFor(fr);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.viewport(0, 0, W, H);
+      gl.enable(gl.SCISSOR_TEST); gl.scissor(Math.max(0, Math.floor(bx[0]) - 30), Math.max(0, Math.floor(803 - bx[3]) - 30), Math.ceil(bx[2] - bx[0]) + 60, Math.ceil(bx[3] - bx[1]) + 60);
+      gl.useProgram(prog1);
+      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, tS0); gl.uniform1i(uni1.s0, 1);
+      gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, tS[String(fr.sec)] || tS[fr.sec]); gl.uniform1i(uni1.sh, 2);
+      gl.uniform2f(uni1.org, META.bbox[0], META.bbox[1]); gl.uniform2f(uni1.sz, SZ[0], SZ[1]);
+      gl.uniformMatrix3fv(uni1.inv, false, inv); gl.uniform1f(uni1.sig, fr.sig); gl.uniform1i(uni1.rad, rad);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.disable(gl.SCISSOR_TEST); gl.activeTexture(gl.TEXTURE0);
+      gl.useProgram(prog2); gl.uniform4f(uni2.box, bx[0], bx[1], bx[2], bx[3]);
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, W, H);
+    gl.useProgram(prog2);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tVid); gl.uniform1i(uni2.vid, 0);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, tA); gl.uniform1i(uni2.a0, 1);
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, tB); gl.uniform1i(uni2.a1, 2);
+    gl.uniform1i(uni2.on, on ? 1 : 0); gl.uniform1f(uni2.sig, on ? fr.sig : 0); gl.uniform1i(uni2.rad, rad);
+    gl.drawArrays(gl.TRIANGLES, 0, 3); gl.activeTexture(gl.TEXTURE0);
+  }
+  return { init, setS0, setStates, draw, get hasStates() { return haveS; }, _dbg: () => ({ fb, tA, tB, tS0, tS, SZ }) };
+})();
+
+// ====================== frame loop ======================
+let lastIdx = -999;
+function onFrame(now, md) {
+  const f = Math.round(md.mediaTime * FPS), idx = f - CLOSE0;
+  if (idx >= 0 && idx < NCLOSE && !S.shown) { S.shown = S.ready; updInfo(); }
+  if (idx < -LOCK || idx > NCLOSE + 24) S.shown = null;
+  if (GLok) { try { GL.draw(idx); } catch (e) { log('draw ' + e); fallback(); } }
+  const cap = window.__cap; // test hook (unused in shows)
+  if (cap && GLok && cap.want.has(idx) && !cap.out[idx]) { const px = new Uint8Array(1920 * 804 * 4); gl.readPixels(0, 0, 1920, 804, gl.RGBA, gl.UNSIGNED_BYTE, px); cap.out[idx] = px; }
+  lastIdx = idx;
+  v.requestVideoFrameCallback(onFrame);
+}
+function fallback() { GLok = false; cv.style.display = 'none'; }
+
+// ====================== start / cover ======================
+let started = false;
+async function start() {
+  if (started) return; started = true;
+  document.body.classList.add('playing');
+  try { await document.documentElement.requestFullscreen({ navigationUI: 'hide' }); } catch (e) {}
+  cover.style.display = 'none';
+  v.currentTime = 0;
+  try { await v.play(); } catch (e) { log('play ' + e); }
+}
+function backToCover() {
+  started = false; document.body.classList.remove('playing'); cover.style.display = '';
+  S.shown = null; v.pause(); v.currentTime = 0;
+  setTime(parseTime(cfg.fix), 'fixada');   // next showing starts again from the fixed time
+  try { if (document.fullscreenElement) document.exitFullscreen(); } catch (e) {}
+}
+cover.addEventListener('click', e => { if (e.clientX < 80 && e.clientY < 80) return; start(); });
+v.addEventListener('ended', () => setTimeout(backToCover, 600));
+
+// ====================== Ably ======================
+let ably = null, chan = null, ablyState = 'desligado';
+function ack(status) {
+  if (!chan) return;
+  chan.publish('recebido', { status, hora: fmt(S.wanted), pronta: fmt(S.ready), id: S.ackId, t: Date.now() }).catch(() => {});
+}
+function connectAbly() {
+  try { if (ably) ably.close(); } catch (e) {}
+  ably = chan = null; ablyState = 'desligado'; updInfo();
+  if (!cfg.key || typeof Ably === 'undefined') { dot.style.background = '#555'; return; }
+  ably = new Ably.Realtime({ key: cfg.key, clientId: 'player', echoMessages: false });
+  ably.connection.on(s => { ablyState = s.current; dot.style.background = s.current === 'connected' ? '#3c3' : '#c33'; updInfo(); });
+  chan = ably.channels.get(cfg.ch);
+  chan.subscribe('hora', msg => {
+    const d = msg.data, t = parseTime(d && typeof d === 'object' && 'hora' in d ? d.hora : d);
+    const id = d && typeof d === 'object' ? d.id : null;
+    if (!t) { log('hora inválida ' + JSON.stringify(d)); return; }
+    const ok = setTime(t, (d && d.de) || 'ably', id);
+    S.ackId = id; ack(ok ? 'recebida' : 'ignorada');
+  });
+}
+
+// ====================== settings screen ======================
+const $ = id => document.getElementById(id);
+function openCfg() {
+  $('cKey').value = cfg.key; $('cCh').value = cfg.ch; $('cFix').value = cfg.fix; $('cEns').checked = !!cfg.ensaio;
+  $('cSt').textContent = 'Ably: ' + ablyState + '\nHora recebida: ' + fmt(S.wanted) + '   pronta: ' + fmt(S.ready);
+  $('cfg').style.display = 'block';
+}
+$('bClose').onclick = () => $('cfg').style.display = 'none';
+$('bSave').onclick = () => {
+  const keyCh = $('cKey').value.trim() !== cfg.key || $('cCh').value.trim() !== cfg.ch;
+  cfg.key = $('cKey').value.trim(); cfg.ch = $('cCh').value.trim() || 'interestelar';
+  const nf = parseTime($('cFix').value); if (nf) cfg.fix = fmt(nf);
+  cfg.ensaio = $('cEns').checked; document.body.classList.toggle('ensaio', cfg.ensaio);
+  saveCfg(); $('cfg').style.display = 'none';
+  if (keyCh) connectAbly();
+  if (nf && (!S.src || S.src === 'fixada')) setTime(nf, 'fixada');
+  updInfo();
+};
+$('bTest').onclick = () => { const t = parseTime($('cTest').value); if (t) { setTime(t, 'teste'); $('cSt').textContent = 'Usando ' + fmt(t); } };
+document.addEventListener('keydown', e => {
+  if ($('cfg').style.display === 'block') { if (e.key === 'Escape') $('bClose').onclick(); return; }
+  if (e.key === 'c' || e.key === 'C') openCfg();
+  else if (e.key === 'e' || e.key === 'E') { cfg.ensaio = !cfg.ensaio; saveCfg(); document.body.classList.toggle('ensaio', cfg.ensaio); updInfo(); }
+  else if ((e.key === ' ' || e.key === 'Enter' || e.key === 'PageDown' || e.key === 'ArrowRight') && !started) start();
+  else if (e.key === 'Home' && started) backToCover();
+});
+let taps = [];
+document.addEventListener('pointerdown', e => {
+  if (e.clientX > 80 || e.clientY > 80) return;
+  const t = performance.now(); taps = taps.filter(x => t - x < 1500); taps.push(t);
+  if (taps.length >= 5) { taps = []; e.stopPropagation(); e.preventDefault(); openCfg(); }
+}, true);
+
+// ====================== boot ======================
+(async () => {
+  META = await (await fetch('assets/meta.json')).json();
+  CLOSE0 = META.close.first; NCLOSE = META.close.count; FPS = META.close.fps; LOCK = META.lockFrames;
+  try { GL.init(); GLok = true; } catch (e) { log('WebGL indisponível: ' + e.message); fallback(); }
+  worker.postMessage({ type: 'init', meta: META, dir: new URL('assets/', location.href).href });
+  setTime(parseTime(cfg.fix), 'fixada');
+  if ('requestVideoFrameCallback' in v) v.requestVideoFrameCallback(onFrame); else fallback();
+  connectAbly(); updInfo();
+  window.__player = { S, setTime, parseTime, GL, get META() { return META; }, get gl() { return gl; }, v }; // for tests
+})();
+</script>
+</body>
+</html>
